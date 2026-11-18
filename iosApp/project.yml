@@ -25,7 +25,10 @@ targets:
         # ponytail: placeholder id until the name is secured (D13).
         PRODUCT_BUNDLE_IDENTIFIER: app.cragpack
         PRODUCT_NAME: Cragpack
-        OTHER_LDFLAGS: ["$(inherited)", "-framework", "Shared"]
+        # Shared is a static framework: its SQLite use (SQLDelight's native driver) must be linked here.
+        OTHER_LDFLAGS: ["$(inherited)", "-framework", "Shared", "-lsqlite3"]
+        # Kotlin builds the simulator framework for Apple silicon only (iosSimulatorArm64).
+        EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
         FRAMEWORK_SEARCH_PATHS: ["$(inherited)", "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"]
         ENABLE_USER_SCRIPT_SANDBOXING: NO
     preBuildScripts:
