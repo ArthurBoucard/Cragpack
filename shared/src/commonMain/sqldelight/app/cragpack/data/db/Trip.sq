@@ -1,0 +1,94 @@
+-- Dates are ISO yyyy-MM-dd text. Times are epoch milliseconds. deleted_at = soft delete (needed for sync).
+CREATE TABLE trip (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    crag TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    cover_media_id TEXT,
+    owner_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+
+CREATE TABLE trip_member (
+    trip_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    role TEXT NOT NULL,             -- organiser | member
+    color_index INTEGER NOT NULL,   -- join order, 1..5 then repeat
+    joined_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER,
+    PRIMARY KEY (trip_id, user_id)
+);
+
+CREATE TABLE sector (
+    id TEXT NOT NULL PRIMARY KEY,
+    trip_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    approach_note TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+
+CREATE TABLE day (
+    id TEXT NOT NULL PRIMARY KEY,
+    trip_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    sector_id TEXT,
+    is_rest INTEGER NOT NULL DEFAULT 0,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+
+selectAll:
+SELECT id, name, crag, start_date, end_date FROM trip WHERE deleted_at IS NULL;
+
+selectById:
+SELECT id, name, crag, start_date, end_date FROM trip WHERE id = ? AND deleted_at IS NULL;
+
+insert:
+INSERT INTO trip (id, name, crag, start_date, end_date, owner_id, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+insertMember:
+INSERT INTO trip_member (trip_id, user_id, role, color_index, joined_at, updated_at) VALUES (?, ?, ?, ?, ?, ?);
+
+-- Crew of every trip, in join order, for trip cards.
+selectMembers:
+SELECT m.trip_id, u.name, m.color_index
+FROM trip_member m JOIN user u ON u.id = m.user_id
+WHERE m.deleted_at IS NULL
+ORDER BY m.trip_id, m.joined_at;
+
+insertDay:
+INSERT INTO day (id, trip_id, date, created_at, updated_at) VALUES (?, ?, ?, ?, ?);
+
+selectDayOn:
+SELECT d.is_rest, s.name AS sector_name
+FROM day d LEFT JOIN sector s ON s.id = d.sector_id AND s.deleted_at IS NULL
+WHERE d.trip_id = ? AND d.date = ? AND d.deleted_at IS NULL;
+
+-- Sends (sent or flash) per trip, for past trip rows.
+selectSendCounts:
+SELECT trip_id, count(*) AS sends FROM log_entry
+WHERE trip_id IS NOT NULL AND style IN ('sent', 'flash') AND deleted_at IS NULL
+GROUP BY trip_id;
+
+-- Everything the trip overview tiles need, in one row.
+selectStats:
+SELECT
+    (SELECT count(*) FROM objective o WHERE o.trip_id = :tripId AND o.deleted_at IS NULL) AS objectives,
+    (SELECT count(DISTINCT l.objective_id) FROM log_entry l JOIN objective o ON o.id = l.objective_id
+        WHERE l.trip_id = :tripId AND l.style IN ('sent', 'flash') AND l.deleted_at IS NULL AND o.deleted_at IS NULL) AS sent,
+    (SELECT count(*) FROM objective o WHERE o.trip_id = :tripId AND o.deleted_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM plan_item p WHERE p.objective_id = o.id AND p.deleted_at IS NULL)) AS unplanned,
+    (SELECT count(*) FROM gear_item g WHERE g.trip_id = :tripId AND g.deleted_at IS NULL) AS gear,
+    (SELECT count(*) FROM gear_item g WHERE g.trip_id = :tripId AND g.deleted_at IS NULL
+        AND (SELECT coalesce(sum(c.quantity), 0) FROM gear_claim c WHERE c.gear_item_id = g.id AND c.deleted_at IS NULL) >= g.quantity_needed) AS gear_covered,
+    (SELECT count(*) FROM beta_item b JOIN objective o ON o.id = b.objective_id
+        WHERE o.trip_id = :tripId AND b.deleted_at IS NULL AND o.deleted_at IS NULL) AS beta;

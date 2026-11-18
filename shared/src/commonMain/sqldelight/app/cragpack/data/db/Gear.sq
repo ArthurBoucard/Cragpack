@@ -1,0 +1,21 @@
+CREATE TABLE gear_item (
+    id TEXT NOT NULL PRIMARY KEY,
+    trip_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    quantity_needed INTEGER NOT NULL,
+    day_id TEXT,                  -- null = whole trip
+    created_by TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+
+-- Claims may exceed the quantity needed: people can bring extra (tech spec §3).
+CREATE TABLE gear_claim (
+    gear_item_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER,
+    PRIMARY KEY (gear_item_id, user_id)
+);

@@ -20,7 +20,11 @@ kotlin {
             api(libs.compose.runtime)
             api(libs.compose.foundation)
             api(libs.compose.ui)
+            api(libs.kotlinx.datetime)
             implementation(libs.compose.resources)
+        }
+        androidMain.dependencies {
+            implementation(libs.androidx.activity.compose)
         }
     }
 }
@@ -86,8 +90,7 @@ val generateTokens = tasks.register("generateTokens") {
             |${scheme("light")}
             |
             |object ColorTokens {
-            |    val photoScrim = ${color(colors["photoScrim"].value())}
-            |    val overlayScrim = ${color(colors["overlayScrim"].value())}
+            |${colors.filterKeys { it != "dark" && it != "light" }.entries.joinToString("\n") { "    val ${it.key} = ${color(it.value.value())}" }}
             |    /** Grade band backgrounds; index 0 = band 1. Band 9 is [gradeGold]. */
             |    val gradeBands = listOf(${(1..8).joinToString { color(grade["$it"].value()) }})
             |    val gradeGold = listOf($gold)

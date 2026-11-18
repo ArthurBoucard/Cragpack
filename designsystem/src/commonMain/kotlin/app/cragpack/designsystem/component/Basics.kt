@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -35,7 +36,8 @@ fun CtText(
     style: TextStyle = CragpackTheme.type.body,
     color: Color = LocalContentColor.current,
     maxLines: Int = Int.MAX_VALUE,
-) = BasicText(text, modifier, style.copy(color = color), overflow = TextOverflow.Ellipsis, maxLines = maxLines)
+    textAlign: TextAlign = TextAlign.Unspecified,
+) = BasicText(text, modifier, style.copy(color = color, textAlign = textAlign), overflow = TextOverflow.Ellipsis, maxLines = maxLines)
 
 /** Lucide icon, 24 by default (18 small). Pass a [contentDescription] unless a label sits next to it. */
 @Composable

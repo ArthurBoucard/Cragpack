@@ -35,10 +35,15 @@ tools/          lucide-to-vector.mjs (SVG icons -> Compose vectors + LucideIcon 
 Inside `shared/src/commonMain/kotlin/app/cragpack/`:
 
 ```
-domain/      pure Kotlin: entities and rules (grades, progress, gear coverage, recap). No framework imports.
-data/        local database, repositories, sync           (Phase 0 spike / Phase 1)
-feature/x/   XScreen.kt, XViewModel.kt, XState.kt per feature (Phase 1)
+domain/      pure Kotlin: entities and rules (grades, trip timing, formatting). No framework imports.
+data/        AppGraph (wiring), repositories over SQLDelight; sync with Supabase arrives in Phase 2
+feature/x/   one file per screen: its ViewModel and UI state at the top, the composables below
 ```
+
+The schema lives in `shared/src/commonMain/sqldelight/`. Until the first release there are no migrations:
+after a schema change, clear the app's data (or reinstall).
+
+Supabase keys go in `local.properties` (never committed): `supabase.url=…` and `supabase.key=…` (publishable key only).
 
 ## Rules
 

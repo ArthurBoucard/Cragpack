@@ -1,0 +1,19 @@
+-- One record feeds both the trip log and the personal logbook (D2). Append-only per user; undo = soft delete.
+-- trip_id and objective_id are both null for a climb logged outside a trip.
+-- The snapshot is copied at log time so the personal logbook survives trip deletion.
+CREATE TABLE log_entry (
+    id TEXT NOT NULL PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    style TEXT NOT NULL,          -- attempt | sent | flash
+    attempts INTEGER,
+    date TEXT NOT NULL,
+    trip_id TEXT,
+    objective_id TEXT,
+    snapshot_name TEXT NOT NULL,
+    snapshot_grade_scale TEXT NOT NULL,
+    snapshot_grade_value TEXT NOT NULL,
+    snapshot_crag TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);

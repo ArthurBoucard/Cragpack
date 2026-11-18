@@ -12,7 +12,7 @@ import app.cragpack.designsystem.tokens.LightColors
 /** Auto follows the system; the user can force Dark or Sunlight in Settings (D10). */
 enum class ThemeMode { Auto, Dark, Sunlight }
 
-private val LocalColors = staticCompositionLocalOf { DarkColors }
+internal val LocalColors = staticCompositionLocalOf { DarkColors }
 private val LocalTypography = staticCompositionLocalOf<CragTypography> { error("Wrap content in CragpackTheme") }
 
 /** Colour for icons and text when a component doesn't set one (like Material's LocalContentColor). */
@@ -33,6 +33,14 @@ fun CragpackTheme(mode: ThemeMode = ThemeMode.Auto, content: @Composable () -> U
         content = content,
     )
 }
+
+/** Photo surfaces and the media viewer stay dark in both themes (D10). */
+@Composable
+internal fun DarkContent(content: @Composable () -> Unit) = CompositionLocalProvider(
+    LocalColors provides DarkColors,
+    LocalContentColor provides DarkColors.ink,
+    content = content,
+)
 
 object CragpackTheme {
     val colors: CragColors

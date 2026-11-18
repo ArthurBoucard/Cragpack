@@ -1,0 +1,67 @@
+CREATE TABLE objective (
+    id TEXT NOT NULL PRIMARY KEY,
+    trip_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    style TEXT NOT NULL,          -- boulder | sport | trad
+    grade_scale TEXT NOT NULL,    -- Font | V | French, stored as entered (D7)
+    grade_value TEXT NOT NULL,
+    sector_id TEXT,
+    lat REAL,                     -- stored now, map comes later (D11)
+    lng REAL,
+    created_by TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+
+-- The star: "I want to try it". Add/remove only, never a conflict.
+CREATE TABLE interest (
+    objective_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER,
+    PRIMARY KEY (objective_id, user_id)
+);
+
+-- An objective is planned on at most one day, so it's keyed by objective.
+CREATE TABLE plan_item (
+    objective_id TEXT NOT NULL PRIMARY KEY,
+    day_id TEXT NOT NULL,
+    order_key TEXT NOT NULL,      -- fractional index: reorder without renumbering
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+
+CREATE TABLE beta_item (
+    id TEXT NOT NULL PRIMARY KEY,
+    objective_id TEXT NOT NULL,
+    type TEXT NOT NULL,           -- video | photo | topo | note | youtube
+    media_id TEXT,
+    url TEXT,                     -- youtube only: online only, never downloaded (D9)
+    text TEXT,
+    duration_sec INTEGER,
+    created_by TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+
+CREATE TABLE media (
+    id TEXT NOT NULL PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    mime TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    remote_url TEXT,
+    upload_state TEXT NOT NULL,   -- queued | uploading | uploaded | failed
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+
+-- Device only, never synced: where a media file lives on this phone.
+CREATE TABLE media_cache (
+    media_id TEXT NOT NULL PRIMARY KEY,
+    local_path TEXT NOT NULL,
+    bytes INTEGER NOT NULL,
+    state TEXT NOT NULL           -- queued | saving | saved | failed
+);

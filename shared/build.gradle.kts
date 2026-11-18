@@ -3,6 +3,16 @@ plugins {
     alias(libs.plugins.androidKmpLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.sqldelight)
+}
+
+sqldelight {
+    databases {
+        create("CragpackDb") {
+            packageName.set("app.cragpack.data.db")
+        }
+    }
 }
 
 kotlin {
@@ -22,9 +32,23 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(projects.designsystem)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.sqldelight.coroutines)
+            implementation(libs.navigation.compose)
+            implementation(libs.lifecycle.viewmodel.compose)
+        }
+        androidMain.dependencies {
+            implementation(libs.sqldelight.android)
+        }
+        iosMain.dependencies {
+            implementation(libs.sqldelight.native)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+        }
+        getByName("androidHostTest").dependencies {
+            implementation(libs.sqldelight.jvm)
         }
     }
 }

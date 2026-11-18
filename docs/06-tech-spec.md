@@ -32,16 +32,11 @@ Items marked **[decide]** are open choices for the developer and product owner. 
 
 ## 3. Sync and conflicts (D6)
 
-- **Sync engine [decide]:** compare options with a Kotlin Multiplatform client:
-  - PowerSync + Postgres
-  - Supabase (with a custom outbox)
-  - your own API with an outbox and change feed
-
-  Criteria:
-  - works fully offline
-  - partial sync per trip
-  - row-level permissions (a member sees only their trips)
-  - cost
+- **Sync engine (decided 2026-11-18):** Supabase with our own sync, built in Phase 2. Phase 1 is local only (SQLDelight).
+  - Push: local writes go into an outbox and are sent to Supabase when online.
+  - Pull: per trip, fetch rows changed since the last cursor (server-assigned `updated_at`, small overlap window, idempotent upserts).
+  - Row-level security: a member sees only their trips.
+  - Revisit PowerSync if the sync code gets hairy: missed updates, membership changes, or a few hundred lines of sync logic.
 - Writes go to the local database first and then into an outbox. Sync runs when online, signed in and the trip is shared.
 - Use server-assigned order (or hybrid logical clocks) to decide "last" in last-write-wins.
 
@@ -50,7 +45,7 @@ Items marked **[decide]** are open choices for the developer and product owner. 
 | Text fields (trip name, notes, objective name, grade) | Last write wins, field by field |
 | Interest ★, crew membership | Add and remove operations. Never a conflict |
 | PlanItem (objective → day) | If two people moved the same objective to **different days** while offline: the first change to reach the server wins, and the other person sees the **Sync conflict sheet (19)** to keep theirs or accept. Reorders within a day are last write wins (fractional `orderKey`) |
-| Gear claims | The server enforces total claimed ≤ needed. A claim that would overflow is rejected and the app shows "Already covered" |
+| Gear claims | Add and remove per user, never a conflict. Claims may exceed the quantity needed: people can bring extra (decided 2026-11-18) |
 | LogEntry | Append-only per user. No conflicts. Undo = soft delete |
 | Deletes | Soft delete (tombstones). A deleted trip disappears for everyone, but each user's LogEntries keep their snapshot (D2) |
 
