@@ -45,7 +45,9 @@ import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.format.formatDay
-import app.cragpack.domain.grade.GradeDisplay
+import app.cragpack.domain.objective.ClimbStyle
+import app.cragpack.feature.entryScale
+import app.cragpack.feature.text
 import app.cragpack.domain.grade.GradeScale
 import app.cragpack.domain.log.hardest
 import app.cragpack.domain.log.pyramid
@@ -62,7 +64,7 @@ private val kinds = listOf("All", "Boulder", "Route")
 
 /** My logbook (26): every send across trips and outside them. */
 @Composable
-fun LogbookScreen(vm: LogbookViewModel, onBack: () -> Unit, onLogSend: () -> Unit, onOpen: (String) -> Unit) {
+fun LogbookScreen(vm: LogbookViewModel, onBack: () -> Unit, onLogSend: () -> Unit, onOpen: (String) -> Unit, onSettings: () -> Unit) {
     val all by vm.entries.collectAsStateWithLifecycle()
     var kind by rememberSaveable { mutableIntStateOf(0) }
     var thisYear by rememberSaveable { mutableStateOf(false) }
@@ -76,7 +78,7 @@ fun LogbookScreen(vm: LogbookViewModel, onBack: () -> Unit, onLogSend: () -> Uni
                 TopBar(
                     leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) },
                     center = { SyncStatusPill(SyncStatus.OnThisPhone) },
-                    // ponytail: the ⚙ opens Settings (27) once that screen exists.
+                    trailing = { CtIconButton(LucideIcon.Settings, "Settings", onSettings) },
                 )
             }
             item { CtText("Logbook", Modifier.padding(top = 24.dp, start = 4.dp, end = 4.dp), style = CragpackTheme.type.h1) }
@@ -97,7 +99,7 @@ fun LogbookScreen(vm: LogbookViewModel, onBack: () -> Unit, onLogSend: () -> Uni
                 item { EmptyState("No sends yet", Modifier.fillMaxWidth().height(240.dp)) }
                 return@LazyColumn
             }
-            item { Stats(sends, if (kind == 2) GradeScale.French else GradeScale.Font) }
+            item { Stats(sends, if (kind == 2) GradeScale.French else ClimbStyle.Boulder.entryScale()) }
             items(sends, key = { it.id }) { e -> Entry(e, vm.today, onOpen) }
         }
     }
@@ -110,7 +112,7 @@ private fun Stats(sends: List<LogbookEntry>, scale: GradeScale) = CtCard(Modifie
             BigNumber("${sends.size}", if (sends.size == 1) "send" else "sends", Modifier.weight(1f), xl = true)
             hardest(sends.map { it.grade })?.let { g ->
                 CtText("Hardest", Modifier.padding(end = 8.dp), color = CragpackTheme.colors.ink2)
-                GradeTag(g.display(GradeDisplay.AsEntered), g.band)
+                GradeTag(g.text(), g.band)
             }
         }
         GradePyramid(pyramid(sends.map { it.grade }, scale).map { Triple(it.label, it.band, it.count) })
@@ -124,7 +126,7 @@ private fun Entry(e: LogbookEntry, today: kotlinx.datetime.LocalDate, onOpen: (S
         e.name,
         meta = "$where · ${formatDay(e.date, today)}",
         onClick = e.objectiveId?.let { { onOpen(it) } },
-        leading = { GradeChip(e.grade.display(GradeDisplay.AsEntered), e.grade.band, size = GradeChipSize.Sm) },
+        leading = { GradeChip(e.grade.text(), e.grade.band, size = GradeChipSize.Sm) },
         trailing = {
             CtText(
                 e.style.label,

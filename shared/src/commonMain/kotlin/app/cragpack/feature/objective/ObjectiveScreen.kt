@@ -70,7 +70,7 @@ import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.RadiusTokens
 import app.cragpack.designsystem.tokens.SizeTokens
-import app.cragpack.domain.grade.GradeDisplay
+import app.cragpack.feature.text
 import app.cragpack.domain.objective.BetaType
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.dialogs.FileKitType
@@ -194,7 +194,7 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
                     )
                     Spacer(Modifier.height(140.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        GradeChip(o.grade.display(GradeDisplay.AsEntered), o.grade.band, size = GradeChipSize.Xl)
+                        GradeChip(o.grade.text(), o.grade.band, size = GradeChipSize.Xl)
                         CtText(o.name, style = CragpackTheme.type.titleXl, maxLines = 2)
                     }
                     // ponytail: becomes a Navigate chip once objectives can hold a location pin.

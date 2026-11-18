@@ -1,0 +1,15 @@
+-- Device only, never synced: how this phone shows things (Settings, 27).
+CREATE TABLE setting (
+    name TEXT NOT NULL PRIMARY KEY,
+    data TEXT NOT NULL
+);
+
+selectAll:
+SELECT name, data FROM setting;
+
+put:
+INSERT OR REPLACE INTO setting (name, data) VALUES (?, ?);
+
+-- Beta media kept on this phone, for the Storage row.
+selectStorageBytes:
+SELECT coalesce(sum(bytes), 0) FROM media_cache;

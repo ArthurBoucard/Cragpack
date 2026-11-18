@@ -52,7 +52,7 @@ import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.format.formatWeekday
-import app.cragpack.domain.grade.GradeDisplay
+import app.cragpack.feature.text
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.SharingStarted
@@ -157,7 +157,7 @@ fun PlanTab(vm: PlanViewModel, bottom: PaddingValues, onBack: () -> Unit, onEdit
                                 onClick = { onOpen(o.id) },
                                 onLongClick = { vm.moving = o },
                                 lifted = dragging,
-                                leading = { GradeChip(o.grade.display(GradeDisplay.AsEntered), o.grade.band) },
+                                leading = { GradeChip(o.grade.text(), o.grade.band) },
                                 trailing = {
                                     Box(Modifier.size(SizeTokens.tapSm).draggableHandle(), contentAlignment = Alignment.Center) {
                                         CtIcon(LucideIcon.GripVertical, "Reorder ${o.name}", tint = CragpackTheme.colors.ink2)
@@ -203,7 +203,7 @@ private fun Tray(unplanned: List<Objective>, modifier: Modifier, onAdd: (String)
     ) {
         item { TrayLabel("${unplanned.size} unplanned") }
         items(unplanned, key = { it.id }) { o ->
-            TrayPick(o.name, o.grade.display(GradeDisplay.AsEntered), o.grade.band, { onAdd(o.id) })
+            TrayPick(o.name, o.grade.text(), o.grade.band, { onAdd(o.id) })
         }
     }
 }

@@ -68,6 +68,10 @@ fun TopBar(
     }
 }
 
+/** Status- and navigation-bar icons that read on the app's background: light icons on Dark, dark on Sunlight, whatever the phone's own mode. */
+@Composable
+expect fun SystemBarIcons(darkTheme: Boolean)
+
 /** While in composition, status-bar icons are light: use on screens whose top is a dark photo hero. */
 @Composable
 expect fun LightStatusBarIcons()

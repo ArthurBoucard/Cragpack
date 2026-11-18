@@ -13,6 +13,19 @@ import androidx.core.view.WindowCompat
 actual fun CtBackHandler(enabled: Boolean, onBack: () -> Unit) = BackHandler(enabled, onBack)
 
 @Composable
+actual fun SystemBarIcons(darkTheme: Boolean) {
+    val view = LocalView.current
+    DisposableEffect(view, darkTheme) {
+        val window = view.context.activity()?.window ?: return@DisposableEffect onDispose {}
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = !darkTheme
+            isAppearanceLightNavigationBars = !darkTheme
+        }
+        onDispose {}
+    }
+}
+
+@Composable
 actual fun LightStatusBarIcons() {
     val view = LocalView.current
     DisposableEffect(view) {

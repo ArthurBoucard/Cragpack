@@ -25,7 +25,7 @@ Without a Mac, CI's `ios` job builds the iOS app on every push.
 ```
 androidApp/     Android shell: MainActivity only
 iosApp/         iOS shell: XcodeGen spec + one Swift file
-designsystem/   tokens (generated), fonts, Lucide icons, Ct* components, Catalog screen
+designsystem/   tokens (generated), fonts, Lucide icons, Ct* components
 shared/         the app: domain, data, features, App() root
 design/         handoff reference: screens, tokens JSON, grades JSON, icon SVGs
 docs/           handoff spec: brief, decisions, screens, data model, tech spec, build plan

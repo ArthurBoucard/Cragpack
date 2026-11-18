@@ -44,6 +44,8 @@ import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.grade.GradeDisplay
+import app.cragpack.feature.LocalGradeDisplay
+import app.cragpack.feature.text
 import app.cragpack.domain.trip.Person
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -83,12 +85,12 @@ class WishlistViewModel(private val graph: AppGraph, tripId: String) : ViewModel
     fun setStarred(id: String, on: Boolean) = viewModelScope.launch(Dispatchers.IO) { graph.objectives.setStarred(id, on) }
 }
 
-internal fun options(ui: WishlistUi, filter: WishlistFilter): List<FilterOption> = when (filter) {
+internal fun options(ui: WishlistUi, filter: WishlistFilter, display: GradeDisplay): List<FilterOption> = when (filter) {
     WishlistFilter.Sector -> ui.sectors + if (ui.all.any { it.sector == null }) listOf(FilterOption(NO_SECTOR, NO_SECTOR)) else emptyList()
     WishlistFilter.Who -> ui.crew.map { FilterOption(it.id, it.label) }
     // One option per colour band, labelled with the grades actually on the list: "6A – 6C".
     WishlistFilter.Grade -> ui.all.groupBy { it.grade.band }.toSortedMap().map { (band, list) ->
-        val grades = list.map { it.grade }.distinct().sortedBy { it.sortIndex }.map { it.display(GradeDisplay.AsEntered) }
+        val grades = list.map { it.grade }.distinct().sortedBy { it.sortIndex }.map { it.display(display) }
         FilterOption("$band", if (grades.size == 1) grades.single() else "${grades.first()} – ${grades.last()}")
     }
 }
@@ -132,7 +134,7 @@ fun WishlistTab(vm: WishlistViewModel, bottom: PaddingValues, onBack: () -> Unit
         item {
             Row(Modifier.padding(top = 6.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 WishlistFilter.entries.forEach { f ->
-                    val chosen = if (filter == f) options(state, f).firstOrNull { it.key == key }?.label else null
+                    val chosen = if (filter == f) options(state, f, LocalGradeDisplay.current).firstOrNull { it.key == key }?.label else null
                     CtChip(chosen ?: f.label, selected = chosen != null, onClick = { vm.picking = f })
                 }
             }
@@ -163,7 +165,7 @@ fun WishlistTab(vm: WishlistViewModel, bottom: PaddingValues, onBack: () -> Unit
 
 @Composable
 private fun ObjectiveRow(o: Objective, onClick: () -> Unit, onStar: () -> Unit) {
-    val text = o.grade.display(GradeDisplay.AsEntered)
+    val text = o.grade.text()
     val meta: @Composable RowScope.() -> Unit = {
         if (o.wanters.isNotEmpty()) AvatarStack(o.wanters.map { it.name to it.colorIndex }, size = AvatarSize.Sm)
         if (o.sent) {
@@ -192,7 +194,7 @@ fun BoxScope.WishlistFilterSheet(vm: WishlistViewModel) {
     CtBottomSheet(visible = f != null && ui != null, title = f?.label ?: "", onDismiss = { vm.picking = null }) {
         if (f == null || ui == null) return@CtBottomSheet
         CtRadioRow("All", selected = vm.filter != f, onClick = { vm.pick(null, null) })
-        options(ui, f).forEach { o ->
+        options(ui, f, LocalGradeDisplay.current).forEach { o ->
             CtRadioRow(o.label, selected = vm.filter == f && vm.key == o.key, onClick = { vm.pick(f, o.key) })
         }
     }

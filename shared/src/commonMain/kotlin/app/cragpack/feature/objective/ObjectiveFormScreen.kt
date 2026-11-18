@@ -42,6 +42,8 @@ import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.grade.Grade
 import app.cragpack.domain.objective.ClimbStyle
+import app.cragpack.feature.StyleGradePicker
+import app.cragpack.feature.keptFor
 import app.cragpack.feature.sector.NewSectorSheet
 import app.cragpack.feature.sector.SectorChips
 import kotlinx.coroutines.Dispatchers
@@ -52,11 +54,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-data class ObjectiveForm(val name: String = "", val style: ClimbStyle = ClimbStyle.Boulder, val grade: String? = null, val sectorId: String? = null) {
+data class ObjectiveForm(val name: String = "", val style: ClimbStyle = ClimbStyle.Boulder, val grade: Grade? = null, val sectorId: String? = null) {
     val canSave get() = name.isNotBlank() && grade != null
 
-    /** Switching between boulder and route grades clears the grade; Sport ↔ Trad keeps it. */
-    fun withStyle(s: ClimbStyle) = copy(style = s, grade = grade.takeIf { s.scale == style.scale })
+    fun withStyle(s: ClimbStyle) = copy(style = s, grade = grade.keptFor(s))
 }
 
 /** Add objective (12), or edit one when [objectiveId] is set (the ⋮ on boulder detail). */
@@ -68,7 +69,7 @@ class ObjectiveFormViewModel(private val graph: AppGraph, private val tripId: St
     init {
         if (objectiveId != null) viewModelScope.launch {
             val o = graph.objectives.observeObjective(objectiveId).first()?.objective ?: return@launch
-            form = ObjectiveForm(o.name, o.style, o.grade.value.takeIf { o.grade.scale == o.style.scale }, o.sector?.id)
+            form = ObjectiveForm(o.name, o.style, o.grade, o.sector?.id)
         }
     }
 
@@ -80,7 +81,7 @@ class ObjectiveFormViewModel(private val graph: AppGraph, private val tripId: St
     /** Returns the objective's id. */
     suspend fun save(): String = withContext(Dispatchers.IO) {
         val f = form
-        val grade = Grade(f.style.scale, f.grade!!)
+        val grade = f.grade!!
         if (objectiveId != null) objectiveId.also { graph.objectives.update(it, f.name, f.style, grade, f.sectorId) }
         else graph.objectives.add(tripId, f.name, f.style, grade, f.sectorId)
     }
@@ -117,13 +118,7 @@ fun ObjectiveFormScreen(vm: ObjectiveFormViewModel, onClose: () -> Unit, onSaved
             )
             CtSegmented(ClimbStyle.entries.map { it.label }, form.style.ordinal, { vm.form = form.withStyle(ClimbStyle.entries[it]) })
             Label("Grade")
-            // ponytail: grades show as entered (Font / French); the Font ↔ V setting arrives with Settings (27).
-            GradePicker(
-                Grade.all(form.style.scale).map { it.value to it.band },
-                form.grade,
-                { vm.form = form.copy(grade = it) },
-                Modifier.padding(horizontal = 3.dp),
-            )
+            StyleGradePicker(form.style, form.grade, { vm.form = form.copy(grade = it) }, Modifier.padding(horizontal = 3.dp))
             Label("Sector")
             SectorChips(sectors, form.sectorId, { vm.form = form.copy(sectorId = it) }, { newSector = true })
             // ponytail: Pin location needs the phone's location; it comes with the map (out of v1, D11 stores pins only).

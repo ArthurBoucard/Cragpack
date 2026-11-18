@@ -39,7 +39,7 @@ import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.format.formatWeekday
-import app.cragpack.domain.grade.GradeDisplay
+import app.cragpack.feature.text
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 
@@ -133,7 +133,7 @@ private fun LogListRow(row: LogRow, onOpen: (String) -> Unit) {
     ListRow(
         row.first.name,
         onClick = row.objectiveId?.let { { onOpen(it) } },
-        leading = { GradeChip(row.first.grade.display(GradeDisplay.AsEntered), row.first.grade.band) },
+        leading = { GradeChip(row.first.grade.text(), row.first.grade.band) },
         meta = meta,
     )
 }

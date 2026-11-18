@@ -39,6 +39,8 @@ import app.cragpack.domain.format.formatDayShort
 import app.cragpack.domain.grade.Grade
 import app.cragpack.domain.log.LogStyle
 import app.cragpack.domain.objective.ClimbStyle
+import app.cragpack.feature.StyleGradePicker
+import app.cragpack.feature.keptFor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
@@ -49,7 +51,7 @@ data class LogSendForm(
     val name: String = "",
     val crag: String = "",
     val style: ClimbStyle = ClimbStyle.Boulder,
-    val grade: String? = null,
+    val grade: Grade? = null,
     val result: LogStyle = LogStyle.Sent,
     val date: LocalDate,
 ) {
@@ -62,7 +64,7 @@ class LogSendViewModel(private val graph: AppGraph) : ViewModel() {
 
     suspend fun log() = withContext(Dispatchers.IO) {
         val f = form
-        graph.logs.logOutside(f.name, Grade(f.style.scale, f.grade!!), f.crag, f.date, f.result)
+        graph.logs.logOutside(f.name, f.grade!!, f.crag, f.date, f.result)
     }
 }
 
@@ -95,10 +97,10 @@ fun LogSendScreen(vm: LogSendViewModel, onClose: () -> Unit) {
             CtTextField(form.crag, { vm.form = form.copy(crag = it) }, "Crag", placeholder = "e.g. Albarracín", keyboardOptions = words)
             CtSegmented(ClimbStyle.entries.map { it.label }, form.style.ordinal, {
                 val s = ClimbStyle.entries[it]
-                vm.form = form.copy(style = s, grade = form.grade.takeIf { s.scale == form.style.scale })
+                vm.form = form.copy(style = s, grade = form.grade.keptFor(s))
             })
             Label("Grade")
-            GradePicker(Grade.all(form.style.scale).map { it.value to it.band }, form.grade, { vm.form = form.copy(grade = it) }, Modifier.padding(horizontal = 3.dp))
+            StyleGradePicker(form.style, form.grade, { vm.form = form.copy(grade = it) }, Modifier.padding(horizontal = 3.dp))
             CtSegmented(LogStyle.entries.map { it.label }, form.result.ordinal, { vm.form = form.copy(result = LogStyle.entries[it]) })
             CtFieldButton("Date", formatDayShort(form.date), "", { dateOpen = true })
             Spacer(Modifier.height(bottom.calculateBottomPadding()))

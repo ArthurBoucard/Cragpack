@@ -23,6 +23,7 @@ import app.cragpack.data.AppGraph
 import app.cragpack.designsystem.component.Avatar
 import app.cragpack.designsystem.component.AvatarSize
 import app.cragpack.designsystem.component.AvatarStack
+import app.cragpack.designsystem.component.CtButton
 import app.cragpack.designsystem.component.CtIconButton
 import app.cragpack.designsystem.component.CtScreen
 import app.cragpack.designsystem.component.CtText
@@ -77,7 +78,14 @@ class TripsViewModel(graph: AppGraph) : ViewModel() {
 
 /** Screens 15 (first launch) and 01. */
 @Composable
-fun TripsScreen(vm: TripsViewModel, onNewTrip: () -> Unit, onOpenTrip: (String) -> Unit, onLogbook: () -> Unit, onMore: () -> Unit) {
+fun TripsScreen(
+    vm: TripsViewModel,
+    onNewTrip: () -> Unit,
+    onOpenTrip: (String) -> Unit,
+    onRecap: (String) -> Unit,
+    onLogbook: () -> Unit,
+    onSettings: () -> Unit,
+) {
     val trips by vm.trips.collectAsStateWithLifecycle()
     CtScreen(dock = { CtaDock("New trip", LucideIcon.Plus, onNewTrip) }) { bottom ->
         LazyColumn(
@@ -88,7 +96,7 @@ fun TripsScreen(vm: TripsViewModel, onNewTrip: () -> Unit, onOpenTrip: (String) 
                 TopBar(
                     leading = { Avatar("", 1, size = AvatarSize.Xl, onClick = onLogbook) },
                     center = { SyncStatusPill(SyncStatus.OnThisPhone) },
-                    trailing = { CtIconButton(LucideIcon.EllipsisVertical, "More", onMore) },
+                    trailing = { CtIconButton(LucideIcon.EllipsisVertical, "Settings", onSettings) },
                 )
             }
             item { CtText("Trips", Modifier.padding(top = 24.dp, start = 4.dp, end = 4.dp), style = CragpackTheme.type.h1) }
@@ -101,7 +109,7 @@ fun TripsScreen(vm: TripsViewModel, onNewTrip: () -> Unit, onOpenTrip: (String) 
                     when (trip.timing) {
                         is TripTiming.Now -> NowCard(trip, trip.timing) { onOpenTrip(trip.id) }
                         is TripTiming.Upcoming -> UpcomingCard(trip) { onOpenTrip(trip.id) }
-                        TripTiming.Past -> PastRow(trip) { onOpenTrip(trip.id) }
+                        TripTiming.Past -> PastRow(trip, { onOpenTrip(trip.id) }, { onRecap(trip.id) })
                     }
                 }
             }
@@ -133,12 +141,13 @@ private fun UpcomingCard(trip: TripCardUi, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PastRow(trip: TripCardUi, onClick: () -> Unit) {
+private fun PastRow(trip: TripCardUi, onClick: () -> Unit, onRecap: () -> Unit) {
     ListRow(
         title = trip.name,
         meta = trip.pastLine,
         onClick = onClick,
         leading = { PhotoSurface(Modifier.size(54.dp), CircleShape) },
+        trailing = { CtButton("Recap", onRecap) },
     )
 }
 

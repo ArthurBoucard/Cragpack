@@ -1,5 +1,6 @@
 package app.cragpack.designsystem.theme
 
+import app.cragpack.designsystem.component.SystemBarIcons
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -26,6 +27,7 @@ fun CragpackTheme(mode: ThemeMode = ThemeMode.Auto, content: @Composable () -> U
         ThemeMode.Sunlight -> false
     }
     val colors = if (dark) DarkColors else LightColors
+    SystemBarIcons(dark)
     CompositionLocalProvider(
         LocalColors provides colors,
         LocalTypography provides cragTypography(),
@@ -39,6 +41,14 @@ fun CragpackTheme(mode: ThemeMode = ThemeMode.Auto, content: @Composable () -> U
 internal fun DarkContent(content: @Composable () -> Unit) = CompositionLocalProvider(
     LocalColors provides DarkColors,
     LocalContentColor provides DarkColors.ink,
+    content = content,
+)
+
+/** The recap sheet stays light in both themes (design rule 9). */
+@Composable
+internal fun LightContent(content: @Composable () -> Unit) = CompositionLocalProvider(
+    LocalColors provides LightColors,
+    LocalContentColor provides LightColors.ink,
     content = content,
 )
 
