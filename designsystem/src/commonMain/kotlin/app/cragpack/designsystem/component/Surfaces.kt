@@ -2,6 +2,14 @@ package app.cragpack.designsystem.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.cragpack.designsystem.icon.LucideIcon
+import coil3.compose.AsyncImage
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -76,14 +84,15 @@ fun CtCard(
 }
 
 /**
- * `.photo` — a dark photo surface: the striped placeholder (a real cover image comes with media),
- * a scrim so text stays readable, and dark colours inside in both themes.
+ * `.photo` — a dark photo surface: the image at [imagePath] (an absolute file path), or the striped
+ * placeholder without one, a scrim so text stays readable, and dark colours inside in both themes.
  */
 @Composable
 fun PhotoSurface(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(RadiusTokens.xl),
     onClick: (() -> Unit)? = null,
+    imagePath: String? = null,
     content: @Composable BoxScope.() -> Unit = {},
 ) {
     val stripe = with(LocalDensity.current) { 24.dp.toPx() / sqrt(2f) }
@@ -99,10 +108,55 @@ fun PhotoSurface(
         modifier
             .then(if (onClick != null) Modifier.ctClickable(true, Role.Button, shape, onClick) else Modifier)
             .clip(shape)
-            .background(stripes)
-            .background(Brush.verticalGradient(0f to scrim.copy(alpha = 0.3f), 0.4f to scrim.copy(alpha = 0f), 1f to scrim)),
+            .background(stripes),
     ) {
+        if (imagePath != null) AsyncImage(imagePath, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to scrim.copy(alpha = 0.3f), 0.4f to scrim.copy(alpha = 0f), 1f to scrim)))
         DarkContent { content() }
+    }
+}
+
+/** `.media` — a beta thumbnail, 108×128, label at the bottom. [onlineOnly] adds the empty offline dot (YouTube). */
+@Composable
+fun BetaThumb(
+    label: String,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    imagePath: String? = null,
+    icon: LucideIcon? = null,
+    onlineOnly: Boolean = false,
+) = PhotoSurface(modifier.size(108.dp, 128.dp), RoundedCornerShape(RadiusTokens.md), onClick, imagePath) {
+    if (icon != null) CtIcon(icon, null, Modifier.align(Alignment.Center), size = 28.dp)
+    Row(
+        Modifier.align(Alignment.BottomStart).padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (onlineOnly) Box(Modifier.size(10.dp).border(2.dp, CragpackTheme.colors.ink, CircleShape))
+        CtText(label, style = CragpackTheme.type.label, maxLines = 1)
+    }
+}
+
+/** `.media.add` — the + at the start of the beta strip. */
+@Composable
+fun AddBetaThumb(onClick: () -> Unit, modifier: Modifier = Modifier) =
+    CtCard(modifier.size(108.dp, 128.dp).semantics { contentDescription = "Add beta" }, radius = RadiusTokens.md, onClick = onClick) {
+        CtIcon(LucideIcon.Plus, null, Modifier.align(Alignment.Center), size = 28.dp)
+    }
+
+/**
+ * Full-screen photo, always dark. Tap or back closes it. Place it in [CtScreen]'s overlay slot.
+ * ponytail: the full media viewer (21: video, position, scrubber) comes in Phase 3.
+ */
+@Composable
+fun BoxScope.ImageViewer(imagePath: String?, onDismiss: () -> Unit) {
+    CtBackHandler(enabled = imagePath != null, onBack = onDismiss)
+    if (imagePath == null) return
+    Box(
+        Modifier.matchParentSize().background(ColorTokens.photoScrim).clickable(null, indication = null, onClick = onDismiss),
+        contentAlignment = Alignment.Center,
+    ) {
+        AsyncImage(imagePath, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
     }
 }
 
@@ -166,6 +220,23 @@ fun ListRow(
     onClick: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
+) {
+    val line: (@Composable RowScope.() -> Unit)? = meta?.let { m ->
+        { CtText(m, style = CragpackTheme.type.label, color = CragpackTheme.colors.ink2, maxLines = 1) }
+    }
+    ListRow(title, modifier, todo, onClick, leading, trailing, meta = line)
+}
+
+/** `.row` with a composable meta line (avatars, sent tick). */
+@Composable
+fun ListRow(
+    title: String,
+    modifier: Modifier = Modifier,
+    todo: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
+    meta: (@Composable RowScope.() -> Unit)?,
 ) = CtCard(modifier.fillMaxWidth().heightIn(min = SizeTokens.row), todo = todo, radius = 38.dp, onClick = onClick) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = SizeTokens.row).padding(start = 10.dp, end = 12.dp),
@@ -175,7 +246,11 @@ fun ListRow(
         leading?.invoke()
         Column(Modifier.weight(1f)) {
             CtText(title, style = CragpackTheme.type.rowName, maxLines = 1)
-            if (meta != null) CtText(meta, Modifier.padding(top = 4.dp), style = CragpackTheme.type.label, color = CragpackTheme.colors.ink2, maxLines = 1)
+            if (meta != null) {
+                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    meta()
+                }
+            }
         }
         trailing?.invoke(this)
     }

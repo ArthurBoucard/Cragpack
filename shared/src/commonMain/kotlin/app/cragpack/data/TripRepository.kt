@@ -79,7 +79,7 @@ class TripRepository internal constructor(
 
     private fun observeCrews(): Flow<Map<String, List<Person>>> =
         db.tripQueries.selectMembers().asFlow().mapToList(io).map { rows ->
-            rows.groupBy({ it.trip_id }, { Person(it.name, it.color_index.toInt()) })
+            rows.groupBy({ it.trip_id }, { Person(it.user_id, it.name, it.color_index.toInt()) })
         }
 
     private fun toTrip(id: String, name: String, crag: String, start: String, end: String) =

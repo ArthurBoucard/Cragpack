@@ -60,10 +60,16 @@ INSERT INTO trip_member (trip_id, user_id, role, color_index, joined_at, updated
 
 -- Crew of every trip, in join order, for trip cards.
 selectMembers:
-SELECT m.trip_id, u.name, m.color_index
+SELECT m.trip_id, m.user_id, u.name, m.color_index
 FROM trip_member m JOIN user u ON u.id = m.user_id
 WHERE m.deleted_at IS NULL
 ORDER BY m.trip_id, m.joined_at;
+
+selectSectors:
+SELECT id, name FROM sector WHERE trip_id = ? AND deleted_at IS NULL ORDER BY created_at;
+
+insertSector:
+INSERT INTO sector (id, trip_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?);
 
 insertDay:
 INSERT INTO day (id, trip_id, date, created_at, updated_at) VALUES (?, ?, ?, ?, ?);

@@ -8,7 +8,10 @@ data class Trip(val id: String, val name: String, val crag: String, val start: L
 }
 
 /** A climber shown as an avatar. [colorIndex] is the join order (1..5 then repeat). Blank [name] = no name yet. */
-data class Person(val name: String, val colorIndex: Int)
+data class Person(val id: String, val name: String, val colorIndex: Int) {
+    /** For lists and filters: you have no name until you create an account. */
+    val label: String get() = name.ifBlank { "You" }
+}
 
 sealed interface TripTiming {
     /** On the trip today: day [day] of [days]. */

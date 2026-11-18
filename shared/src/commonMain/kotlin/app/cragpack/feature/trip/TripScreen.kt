@@ -49,6 +49,9 @@ import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.format.formatDateRange
 import app.cragpack.domain.trip.TripTiming
 import app.cragpack.domain.trip.timing
+import app.cragpack.feature.wishlist.WishlistFilterSheet
+import app.cragpack.feature.wishlist.WishlistTab
+import app.cragpack.feature.wishlist.WishlistViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -68,16 +71,26 @@ private val tabs = listOf("Trip", "Wishlist", "Plan", "Gear", "Log")
 
 /** Inside a trip: the 5-tab dock. Screen 02 is the Trip tab. */
 @Composable
-fun TripScreen(vm: TripViewModel, onBack: () -> Unit) {
+fun TripScreen(
+    vm: TripViewModel,
+    wishlist: WishlistViewModel,
+    onBack: () -> Unit,
+    onAddObjective: () -> Unit,
+    onOpenObjective: (String) -> Unit,
+) {
     val ui by vm.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    CtScreen(dock = { TabDock(tabs, tab, { tab = it }) }) { bottom ->
+    CtScreen(
+        dock = { TabDock(tabs, tab, { tab = it }) },
+        overlay = { if (tab == 1) WishlistFilterSheet(wishlist) },
+    ) { bottom ->
         val state = ui ?: return@CtScreen
         when (tab) {
             0 -> {
                 LightStatusBarIcons()
                 Overview(state, bottom.calculateBottomPadding(), onBack, onTab = { tab = it })
             }
+            1 -> WishlistTab(wishlist, bottom, onBack, onAddObjective, onOpenObjective)
             // ponytail: placeholder until each tab's slice lands.
             else -> Column(Modifier.padding(horizontal = SizeTokens.edge)) {
                 TopBar(leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) })

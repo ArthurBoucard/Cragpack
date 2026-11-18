@@ -22,6 +22,7 @@ kotlin {
             api(libs.compose.ui)
             api(libs.kotlinx.datetime)
             implementation(libs.compose.resources)
+            implementation(libs.coil.compose)
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)

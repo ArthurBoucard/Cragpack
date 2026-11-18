@@ -11,6 +11,11 @@ import app.cragpack.designsystem.Catalog
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.feature.newtrip.NewTripScreen
 import app.cragpack.feature.newtrip.NewTripViewModel
+import app.cragpack.feature.objective.ObjectiveFormScreen
+import app.cragpack.feature.objective.ObjectiveFormViewModel
+import app.cragpack.feature.objective.ObjectiveScreen
+import app.cragpack.feature.objective.ObjectiveViewModel
+import app.cragpack.feature.wishlist.WishlistViewModel
 import app.cragpack.feature.trip.TripScreen
 import app.cragpack.feature.trip.TripViewModel
 import app.cragpack.feature.trips.TripsScreen
@@ -21,6 +26,8 @@ import kotlinx.serialization.Serializable
 @Serializable private data object NewTripRoute
 @Serializable private data class TripRoute(val id: String)
 @Serializable private data object CatalogRoute
+@Serializable private data class ObjectiveFormRoute(val tripId: String, val objectiveId: String? = null)
+@Serializable private data class ObjectiveRoute(val id: String)
 
 /** Root of the app on both platforms. Trips home is the root (docs/03 navigation model). */
 @Composable
@@ -45,7 +52,34 @@ fun App(graph: AppGraph) = CragpackTheme {
         }
         composable<TripRoute> { entry ->
             val id = entry.toRoute<TripRoute>().id
-            TripScreen(viewModel { TripViewModel(graph, id) }, onBack = { nav.popBackStack() })
+            TripScreen(
+                viewModel { TripViewModel(graph, id) },
+                viewModel { WishlistViewModel(graph, id) },
+                onBack = { nav.popBackStack() },
+                onAddObjective = { nav.navigate(ObjectiveFormRoute(id)) },
+                onOpenObjective = { nav.navigate(ObjectiveRoute(it)) },
+            )
+        }
+        composable<ObjectiveFormRoute> { entry ->
+            val route = entry.toRoute<ObjectiveFormRoute>()
+            ObjectiveFormScreen(
+                viewModel { ObjectiveFormViewModel(graph, route.tripId, route.objectiveId) },
+                onClose = { nav.popBackStack() },
+                onSaved = { id ->
+                    // A new objective opens its detail so beta can be added right away (flow 4); an edit just closes.
+                    if (route.objectiveId != null) nav.popBackStack()
+                    else nav.navigate(ObjectiveRoute(id)) { popUpTo<ObjectiveFormRoute> { inclusive = true } }
+                },
+            )
+        }
+        composable<ObjectiveRoute> { entry ->
+            val id = entry.toRoute<ObjectiveRoute>().id
+            val vm = viewModel { ObjectiveViewModel(graph, id) }
+            ObjectiveScreen(
+                vm,
+                onBack = { nav.popBackStack() },
+                onEdit = { vm.state.value?.let { nav.navigate(ObjectiveFormRoute(it.objective.tripId, id)) } },
+            )
         }
         composable<CatalogRoute> { Catalog() }
     }

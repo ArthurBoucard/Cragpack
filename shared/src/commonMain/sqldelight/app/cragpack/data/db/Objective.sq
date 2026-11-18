@@ -65,3 +65,61 @@ CREATE TABLE media_cache (
     bytes INTEGER NOT NULL,
     state TEXT NOT NULL           -- queued | saving | saved | failed
 );
+
+insertObjective:
+INSERT INTO objective (id, trip_id, name, style, grade_scale, grade_value, sector_id, created_by, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateObjective:
+UPDATE objective SET name = ?, style = ?, grade_scale = ?, grade_value = ?, sector_id = ?, updated_at = ? WHERE id = ?;
+
+deleteObjective:
+UPDATE objective SET deleted_at = :now, updated_at = :now WHERE id = :id;
+
+-- Wishlist rows, plus whether anyone sent it.
+selectByTrip:
+SELECT o.id, o.trip_id, o.name, o.style, o.grade_scale, o.grade_value, o.sector_id, s.name AS sector_name,
+    EXISTS (SELECT 1 FROM log_entry l WHERE l.objective_id = o.id AND l.style IN ('sent', 'flash') AND l.deleted_at IS NULL) AS sent
+FROM objective o LEFT JOIN sector s ON s.id = o.sector_id AND s.deleted_at IS NULL
+WHERE o.trip_id = ? AND o.deleted_at IS NULL
+ORDER BY o.created_at;
+
+selectObjective:
+SELECT o.id, o.trip_id, o.name, o.style, o.grade_scale, o.grade_value, o.sector_id, s.name AS sector_name,
+    EXISTS (SELECT 1 FROM log_entry l WHERE l.objective_id = o.id AND l.style IN ('sent', 'flash') AND l.deleted_at IS NULL) AS sent
+FROM objective o LEFT JOIN sector s ON s.id = o.sector_id AND s.deleted_at IS NULL
+WHERE o.id = ? AND o.deleted_at IS NULL;
+
+-- Who wants what, with each climber's crew colour, in join order.
+selectInterests:
+SELECT i.objective_id, i.user_id, coalesce(u.name, '') AS name, coalesce(m.color_index, 1) AS color_index
+FROM interest i
+JOIN objective o ON o.id = i.objective_id
+LEFT JOIN user u ON u.id = i.user_id
+LEFT JOIN trip_member m ON m.trip_id = o.trip_id AND m.user_id = i.user_id
+WHERE o.trip_id = ? AND i.deleted_at IS NULL
+ORDER BY m.joined_at;
+
+-- The star is add/remove only: one row per (objective, climber), deleted_at set when un-starred.
+setInterest:
+INSERT OR REPLACE INTO interest (objective_id, user_id, updated_at, deleted_at) VALUES (?, ?, ?, ?);
+
+selectBeta:
+SELECT b.id, b.type, b.url, b.text, coalesce(u.name, '') AS author_name, coalesce(m.color_index, 1) AS color_index, c.local_path
+FROM beta_item b
+JOIN objective o ON o.id = b.objective_id
+LEFT JOIN user u ON u.id = b.created_by
+LEFT JOIN trip_member m ON m.trip_id = o.trip_id AND m.user_id = b.created_by
+LEFT JOIN media_cache c ON c.media_id = b.media_id
+WHERE b.objective_id = ? AND b.deleted_at IS NULL
+ORDER BY b.created_at;
+
+insertBeta:
+INSERT INTO beta_item (id, objective_id, type, media_id, url, text, created_by, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+insertMedia:
+INSERT INTO media (id, owner_id, mime, size_bytes, upload_state, created_at, updated_at) VALUES (?, ?, ?, ?, 'queued', ?, ?);
+
+insertMediaCache:
+INSERT INTO media_cache (media_id, local_path, bytes, state) VALUES (?, ?, ?, 'saved');

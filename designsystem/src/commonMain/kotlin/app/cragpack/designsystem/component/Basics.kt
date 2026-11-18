@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -51,17 +52,19 @@ fun CtIcon(
 
 /**
  * Shared touch behaviour from the design system "States": pressed = scale 0.97, disabled = 40% opacity,
- * focus = 3-wide ink outline. No ripple.
+ * focus = 3-wide ink outline. No ripple. Tapping any control leaves the text field being edited,
+ * so the keyboard doesn't hide the choices below it.
  */
 @Composable
 internal fun Modifier.ctClickable(enabled: Boolean, role: Role, shape: Shape, onClick: () -> Unit): Modifier {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val focused by interaction.collectIsFocusedAsState()
+    val focus = LocalFocusManager.current
     val ink = CragpackTheme.colors.ink
     return this
         .graphicsLayer { if (pressed) { scaleX = 0.97f; scaleY = 0.97f } }
         .alpha(if (enabled) 1f else 0.4f)
         .then(if (focused) Modifier.border(3.dp, ink, shape) else Modifier)
-        .clickable(interaction, indication = null, enabled = enabled, role = role, onClick = onClick)
+        .clickable(interaction, indication = null, enabled = enabled, role = role) { focus.clearFocus(); onClick() }
 }

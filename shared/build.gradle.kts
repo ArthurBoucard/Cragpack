@@ -36,6 +36,7 @@ kotlin {
             implementation(libs.sqldelight.coroutines)
             implementation(libs.navigation.compose)
             implementation(libs.lifecycle.viewmodel.compose)
+            implementation(libs.filekit.dialogs.compose)
         }
         androidMain.dependencies {
             implementation(libs.sqldelight.android)
