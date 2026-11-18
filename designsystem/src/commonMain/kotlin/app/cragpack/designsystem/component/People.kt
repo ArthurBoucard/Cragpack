@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -32,12 +33,13 @@ enum class AvatarSize(internal val box: Dp, internal val text: TextUnit) {
  * A blank [name] (no account yet) shows the generic person icon on a neutral circle.
  */
 @Composable
-fun Avatar(name: String, colorIndex: Int, modifier: Modifier = Modifier, size: AvatarSize = AvatarSize.Md) {
+fun Avatar(name: String, colorIndex: Int, modifier: Modifier = Modifier, size: AvatarSize = AvatarSize.Md, onClick: (() -> Unit)? = null) {
     val c = CragpackTheme.colors
     val anonymous = name.isBlank()
     Box(
         modifier
             .size(size.box)
+            .then(if (onClick != null) Modifier.ctClickable(true, Role.Button, CircleShape, onClick) else Modifier)
             .semantics { contentDescription = name.ifBlank { "You" } }
             .clip(CircleShape)
             .background(if (anonymous) c.surface2 else ColorTokens.people[(colorIndex - 1).mod(ColorTokens.people.size)])

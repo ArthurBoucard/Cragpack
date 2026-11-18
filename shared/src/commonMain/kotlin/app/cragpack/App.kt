@@ -9,7 +9,12 @@ import androidx.navigation.toRoute
 import app.cragpack.data.AppGraph
 import app.cragpack.designsystem.Catalog
 import app.cragpack.designsystem.theme.CragpackTheme
+import app.cragpack.feature.logbook.LogSendScreen
+import app.cragpack.feature.logbook.LogSendViewModel
+import app.cragpack.feature.logbook.LogbookScreen
+import app.cragpack.feature.logbook.LogbookViewModel
 import app.cragpack.feature.newtrip.NewTripScreen
+import app.cragpack.feature.triplog.TripLogViewModel
 import app.cragpack.feature.newtrip.NewTripViewModel
 import app.cragpack.feature.objective.ObjectiveFormScreen
 import app.cragpack.feature.objective.ObjectiveFormViewModel
@@ -28,6 +33,8 @@ import kotlinx.serialization.Serializable
 @Serializable private data object CatalogRoute
 @Serializable private data class ObjectiveFormRoute(val tripId: String, val objectiveId: String? = null)
 @Serializable private data class ObjectiveRoute(val id: String)
+@Serializable private data object LogbookRoute
+@Serializable private data object LogSendRoute
 
 /** Root of the app on both platforms. Trips home is the root (docs/03 navigation model). */
 @Composable
@@ -39,6 +46,7 @@ fun App(graph: AppGraph) = CragpackTheme {
                 viewModel { TripsViewModel(graph) },
                 onNewTrip = { nav.navigate(NewTripRoute) },
                 onOpenTrip = { nav.navigate(TripRoute(it)) },
+                onLogbook = { nav.navigate(LogbookRoute) },
                 // ponytail: ⋮ shows the design-system catalog until Settings exists.
                 onMore = { nav.navigate(CatalogRoute) },
             )
@@ -55,6 +63,7 @@ fun App(graph: AppGraph) = CragpackTheme {
             TripScreen(
                 viewModel { TripViewModel(graph, id) },
                 viewModel { WishlistViewModel(graph, id) },
+                viewModel { TripLogViewModel(graph, id) },
                 onBack = { nav.popBackStack() },
                 onAddObjective = { nav.navigate(ObjectiveFormRoute(id)) },
                 onOpenObjective = { nav.navigate(ObjectiveRoute(it)) },
@@ -81,6 +90,15 @@ fun App(graph: AppGraph) = CragpackTheme {
                 onEdit = { vm.state.value?.let { nav.navigate(ObjectiveFormRoute(it.objective.tripId, id)) } },
             )
         }
+        composable<LogbookRoute> {
+            LogbookScreen(
+                viewModel { LogbookViewModel(graph) },
+                onBack = { nav.popBackStack() },
+                onLogSend = { nav.navigate(LogSendRoute) },
+                onOpen = { nav.navigate(ObjectiveRoute(it)) },
+            )
+        }
+        composable<LogSendRoute> { LogSendScreen(viewModel { LogSendViewModel(graph) }, onClose = { nav.popBackStack() }) }
         composable<CatalogRoute> { Catalog() }
     }
 }

@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,18 +25,21 @@ import app.cragpack.designsystem.tokens.SizeTokens
 /**
  * Screen frame: background, an optional floating [dock] above the home indicator, and an [overlay]
  * slot for sheets and toasts drawn above everything. [content] gets the bottom padding that keeps
- * the last item clear of the dock (design rule 10).
+ * the last item clear of the dock (design rule 10). A background strip keeps scrolled content out
+ * from under the status bar; screens whose top is a photo hero turn it off with [statusBarStrip].
  */
 @Composable
 fun CtScreen(
     modifier: Modifier = Modifier,
+    statusBarStrip: Boolean = true,
     dock: (@Composable () -> Unit)? = null,
     overlay: @Composable BoxScope.() -> Unit = {},
     content: @Composable (bottomPadding: PaddingValues) -> Unit,
 ) {
-    val dockBottom = max(SizeTokens.edge, WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+    val dockBottom = dockBottom()
     Box(modifier.fillMaxSize().background(CragpackTheme.colors.bg)) {
         content(PaddingValues(bottom = if (dock != null) dockBottom + 88.dp else dockBottom))
+        if (statusBarStrip) Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(CragpackTheme.colors.bg))
         if (dock != null) {
             Box(Modifier.align(Alignment.BottomCenter).padding(start = SizeTokens.edge, end = SizeTokens.edge, bottom = dockBottom)) {
                 dock()
@@ -43,6 +48,10 @@ fun CtScreen(
         overlay()
     }
 }
+
+/** Where the dock sits: above the home indicator, at least a screen edge from the bottom. */
+@Composable
+internal fun dockBottom() = max(SizeTokens.edge, WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
 
 /** Top bar: back/close or avatar on the left, status or title centred, one action on the right. Sits below the status bar. */
 @Composable

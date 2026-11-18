@@ -7,6 +7,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,14 +62,31 @@ fun GradeTag(text: String, band: Int, modifier: Modifier = Modifier) =
     GradeShape(text, band, RoundedCornerShape(12.dp), 13.sp, modifier.height(24.dp), padH = 9.dp)
 
 /**
- * `.gpick` — 4 columns of grade pills in band colours; the selected one gets an outline ring.
- * [grades] are (text, band) in sort order.
+ * `.gpick` — every grade, two taps away: a row of numbers (1…9, in band colours), then that number's
+ * grades as 4 columns of pills. The selected grade gets an outline ring. [grades] are (text, band) in sort order.
  */
 @Composable
 fun GradePicker(grades: List<Pair<String, Int>>, selected: String?, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     val ink = CragpackTheme.colors.ink
+    val groups = remember(grades) { grades.groupBy { (text, _) -> numberOf(text) } }
+    var open by rememberSaveable(grades) { mutableStateOf(selected?.let(::numberOf) ?: groups.keys.firstOrNull { it == "6" } ?: groups.keys.first()) }
+    LaunchedEffect(selected) { if (selected != null) open = numberOf(selected) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
-        grades.chunked(4).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            groups.forEach { (number, list) ->
+                val on = number == open
+                GradeShape(
+                    number, list.first().second, CircleShape, 15.sp,
+                    Modifier
+                        .weight(1f)
+                        .height(SizeTokens.tapSm)
+                        .alpha(if (on) 1f else 0.35f)
+                        .ctClickable(true, Role.Tab, CircleShape) { open = number }
+                        .semantics { this.selected = on; contentDescription = "Grades $number" },
+                )
+            }
+        }
+        groups[open].orEmpty().chunked(4).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
                 row.forEach { (text, band) ->
                     val on = text == selected
@@ -74,6 +101,27 @@ fun GradePicker(grades: List<Pair<String, Int>>, selected: String?, onSelect: (S
                     )
                 }
                 repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/** "6A+" → "6"; grades without a digit (VB) keep their first letter. */
+private fun numberOf(grade: String): String = (grade.firstOrNull { it.isDigit() } ?: grade.first()).toString()
+
+/** `.pyramid` — one bar per band row: label, bar in the band colour (length = value / max), count. */
+@Composable
+fun GradePyramid(rows: List<Triple<String, Int, Int>>, modifier: Modifier = Modifier) {
+    val max = rows.maxOfOrNull { it.third }?.coerceAtLeast(1) ?: 1
+    val style = CragpackTheme.type.h3.copy(fontSize = 13.sp, lineHeight = 13.sp, letterSpacing = 0.sp)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        rows.forEach { (label, band, count) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CtText(label, Modifier.width(64.dp), style = style, maxLines = 1)
+                Box(Modifier.weight(1f)) {
+                    GradeShape("", band, CircleShape, 13.sp, Modifier.fillMaxWidth(count.toFloat() / max).height(16.dp))
+                }
+                CtText("$count", Modifier.width(28.dp), style = style, textAlign = androidx.compose.ui.text.style.TextAlign.End, maxLines = 1)
             }
         }
     }

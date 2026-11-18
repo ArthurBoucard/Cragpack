@@ -32,6 +32,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.cragpack.data.AppGraph
 import app.cragpack.data.Beta
+import app.cragpack.data.LogUndo
+import app.cragpack.designsystem.component.CtIcon
+import app.cragpack.designsystem.component.CtToast
+import app.cragpack.designsystem.component.LogDock
+import app.cragpack.domain.log.LogStyle
+import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.withContext
 import app.cragpack.data.MediaFiles
 import app.cragpack.data.isYoutubeLink
 import app.cragpack.designsystem.component.AddBetaThumb
@@ -77,6 +84,26 @@ import kotlinx.coroutines.launch
 class ObjectiveViewModel(private val graph: AppGraph, private val id: String) : ViewModel() {
     /** null while loading, and once deleted. */
     val state = graph.objectives.observeObjective(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val logs = graph.logs.observeForObjective(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val myId = graph.myId
+
+    /** The Undo toast's message after a log action. */
+    var toast by mutableStateOf<String?>(null)
+    private var lastLog: LogUndo? = null
+
+    fun log(style: LogStyle) = viewModelScope.launch {
+        val name = state.value?.objective?.name.orEmpty()
+        val undo = withContext(Dispatchers.IO) { graph.logs.log(id, style) }
+        lastLog = undo
+        toast = if (undo.added == null) "Removed ${style.label.lowercase()} · $name" else "${style.label} · $name"
+    }
+
+    fun undoLog() {
+        val undo = lastLog ?: return
+        lastLog = null
+        toast = null
+        viewModelScope.launch(Dispatchers.IO) { graph.logs.undo(undo) }
+    }
 
     fun setStarred(on: Boolean) = write { setStarred(id, on) }
     fun delete() = write { delete(id) }
@@ -100,6 +127,7 @@ private enum class Sheet { AddBeta, Note, More }
 @Composable
 fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
     val ui by vm.state.collectAsStateWithLifecycle()
+    val logs by vm.logs.collectAsStateWithLifecycle()
     var sheet by rememberSaveable { mutableStateOf<Sheet?>(null) }
     var viewing by rememberSaveable { mutableStateOf<String?>(null) }
     var link by rememberSaveable { mutableStateOf("") }
@@ -109,8 +137,19 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
     val videos = rememberFilePickerLauncher(FileKitType.Video) { file -> if (file != null) vm.addFile(file, BetaType.Video) }
     val uri = LocalUriHandler.current
 
+    val mine = logs.filter { it.person.id == vm.myId }.map { it.style }
+    val attempts = mine.count { it == LogStyle.Attempt }
     CtScreen(
+        statusBarStrip = false,
+        dock = {
+            if (ui != null) LogDock(
+                listOf(if (attempts > 0) "Attempt · $attempts" else "Attempt", "Sent", "Flash"),
+                on = when { LogStyle.Flash in mine -> 2; LogStyle.Sent in mine -> 1; else -> null },
+                onClick = { vm.log(LogStyle.entries[it]) },
+            )
+        },
         overlay = {
+            CtToast(vm.toast, "Undo", vm::undoLog) { vm.toast = null }
             CtBottomSheet(sheet == Sheet.AddBeta, "Add beta", { sheet = null }) {
                 CtTextField(
                     link, { link = it }, "YouTube link · plays online only", placeholder = "youtu.be/…", mono = true,
@@ -172,8 +211,12 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
                     PeopleTile("Want", o.wanters.map { it.name to it.colorIndex }, Modifier.weight(1f)) {
                         StarToggle(o.starred, { vm.setStarred(!o.starred) }, if (o.starred) "Don't want it" else "Want it")
                     }
-                    // ponytail: filled in by the logging slice (Attempt · Sent · Flash dock, 24).
-                    PeopleTile("Sent", emptyList(), Modifier.weight(1f))
+                    // Each climber's best: a flash beats a sent.
+                    val senders = logs.filter { it.style.isSend }.groupBy { it.person.id }.values.map { l -> l.maxBy { it.style.ordinal } }
+                    PeopleTile(
+                        "Sent", senders.map { it.person.name to it.person.colorIndex }, Modifier.weight(1f),
+                        tick = senders.singleOrNull()?.style?.label,
+                    )
                 }
             }
             Spacer(Modifier.height(bottom.calculateBottomPadding()))
@@ -209,7 +252,13 @@ private fun NoteCard(b: Beta) = CtCard(Modifier.fillMaxWidth(), radius = RadiusT
 }
 
 @Composable
-private fun PeopleTile(label: String, people: List<Pair<String, Int>>, modifier: Modifier, action: (@Composable () -> Unit)? = null) =
+private fun PeopleTile(
+    label: String,
+    people: List<Pair<String, Int>>,
+    modifier: Modifier,
+    tick: String? = null,
+    action: (@Composable () -> Unit)? = null,
+) =
     CtCard(modifier) {
         Column(
             Modifier.fillMaxWidth().heightIn(min = 104.dp).padding(horizontal = 20.dp, vertical = 16.dp),
@@ -217,7 +266,13 @@ private fun PeopleTile(label: String, people: List<Pair<String, Int>>, modifier:
         ) {
             CtText(label, color = CragpackTheme.colors.ink2, maxLines = 1)
             if (people.isEmpty()) CtText("Nobody yet", color = CragpackTheme.colors.ink2, maxLines = 1)
-            else AvatarStack(people, size = AvatarSize.Lg)
+            else Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                AvatarStack(people, size = AvatarSize.Lg)
+                if (tick != null) {
+                    CtIcon(LucideIcon.Check, null, size = 18.dp, tint = CragpackTheme.colors.accentInk)
+                    CtText(tick, style = CragpackTheme.type.body.copy(fontWeight = FontWeight.Bold), color = CragpackTheme.colors.accentInk)
+                }
+            }
         }
         if (action != null) Box(Modifier.align(Alignment.TopEnd).padding(10.dp)) { action() }
     }

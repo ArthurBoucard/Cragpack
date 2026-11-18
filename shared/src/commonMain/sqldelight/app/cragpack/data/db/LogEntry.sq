@@ -17,3 +17,55 @@ CREATE TABLE log_entry (
     updated_at INTEGER NOT NULL,
     deleted_at INTEGER
 );
+
+insertLog:
+INSERT INTO log_entry (id, user_id, style, date, trip_id, objective_id, snapshot_name, snapshot_grade_scale, snapshot_grade_value, snapshot_crag, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Soft delete, or restore with deletedAt = NULL (Undo).
+setDeleted:
+UPDATE log_entry SET deleted_at = :deletedAt, updated_at = :now WHERE id IN :ids;
+
+-- What gets copied into a log entry, so the personal logbook survives the trip (D2).
+selectSnapshot:
+SELECT o.trip_id, o.name, o.grade_scale, o.grade_value, t.crag
+FROM objective o JOIN trip t ON t.id = o.trip_id
+WHERE o.id = ?;
+
+selectMySends:
+SELECT id, style FROM log_entry
+WHERE objective_id = ? AND user_id = ? AND style IN ('sent', 'flash') AND deleted_at IS NULL;
+
+-- Everyone's entries on one objective: the Sent tile and the log dock.
+selectForObjective:
+SELECT l.user_id, coalesce(u.name, '') AS name, coalesce(m.color_index, 1) AS color_index, l.style
+FROM log_entry l
+LEFT JOIN user u ON u.id = l.user_id
+LEFT JOIN trip_member m ON m.trip_id = l.trip_id AND m.user_id = l.user_id
+WHERE l.objective_id = ? AND l.deleted_at IS NULL
+ORDER BY l.created_at;
+
+-- The trip log (25): newest day first. Grade and sector follow the objective if it was edited since.
+selectForTrip:
+SELECT l.user_id, coalesce(u.name, '') AS name, coalesce(m.color_index, 1) AS color_index, l.style, l.date, l.objective_id,
+    coalesce(o.name, l.snapshot_name) AS objective_name,
+    coalesce(o.grade_scale, l.snapshot_grade_scale) AS grade_scale,
+    coalesce(o.grade_value, l.snapshot_grade_value) AS grade_value,
+    s.name AS sector_name
+FROM log_entry l
+LEFT JOIN user u ON u.id = l.user_id
+LEFT JOIN trip_member m ON m.trip_id = l.trip_id AND m.user_id = l.user_id
+LEFT JOIN objective o ON o.id = l.objective_id
+LEFT JOIN sector s ON s.id = o.sector_id AND s.deleted_at IS NULL
+WHERE l.trip_id = ? AND l.deleted_at IS NULL AND (o.id IS NULL OR o.deleted_at IS NULL)
+ORDER BY l.date DESC, l.created_at;
+
+-- My logbook (26): every trip and outside trips, newest first. Uses the snapshot only.
+selectMine:
+SELECT l.id, l.style, l.date, l.snapshot_name, l.snapshot_grade_scale, l.snapshot_grade_value, l.snapshot_crag,
+    t.name AS trip_name, o.id AS objective_id
+FROM log_entry l
+LEFT JOIN trip t ON t.id = l.trip_id AND t.deleted_at IS NULL
+LEFT JOIN objective o ON o.id = l.objective_id AND o.deleted_at IS NULL
+WHERE l.user_id = ? AND l.deleted_at IS NULL
+ORDER BY l.date DESC, l.created_at DESC;

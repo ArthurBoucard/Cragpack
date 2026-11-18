@@ -36,7 +36,10 @@ import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 
-/** Sheet to pick a start and end date on one month grid: tap the first day, then the last. */
+/**
+ * Sheet to pick a start and end date on one month grid: tap the first day, then the last.
+ * With [single], one tap picks one day (start = end).
+ */
 @Composable
 fun BoxScope.DateRangeSheet(
     visible: Boolean,
@@ -45,12 +48,13 @@ fun BoxScope.DateRangeSheet(
     today: LocalDate,
     onDone: (LocalDate, LocalDate) -> Unit,
     onDismiss: () -> Unit,
+    single: Boolean = false,
 ) {
     var from by remember(visible) { mutableStateOf(start) }
     var to by remember(visible) { mutableStateOf(end) }
     var month by remember(visible) { mutableStateOf((start ?: today).firstOfMonth()) }
 
-    CtBottomSheet(visible, title = if (from == null || to != null) "Trip dates" else "Last day?", onDismiss = onDismiss) {
+    CtBottomSheet(visible, title = when { single -> "Date"; from == null || to != null -> "Trip dates"; else -> "Last day?" }, onDismiss = onDismiss) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             CtIconButton(LucideIcon.ChevronLeft, "Previous month", { month = month.minus(DatePeriod(months = 1)) }, size = CtIconButtonSize.Sm)
             CtText(monthTitle(month), Modifier.weight(1f), style = CragpackTheme.type.title, textAlign = TextAlign.Center)
@@ -59,6 +63,7 @@ fun BoxScope.DateRangeSheet(
         MonthGrid(month, from, to, today) { d ->
             val s = from
             when {
+                single -> { from = d; to = d }
                 s == null || to != null -> { from = d; to = null }
                 d < s -> from = d
                 else -> to = d

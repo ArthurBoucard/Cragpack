@@ -49,6 +49,8 @@ import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.format.formatDateRange
 import app.cragpack.domain.trip.TripTiming
 import app.cragpack.domain.trip.timing
+import app.cragpack.feature.triplog.TripLogTab
+import app.cragpack.feature.triplog.TripLogViewModel
 import app.cragpack.feature.wishlist.WishlistFilterSheet
 import app.cragpack.feature.wishlist.WishlistTab
 import app.cragpack.feature.wishlist.WishlistViewModel
@@ -74,6 +76,7 @@ private val tabs = listOf("Trip", "Wishlist", "Plan", "Gear", "Log")
 fun TripScreen(
     vm: TripViewModel,
     wishlist: WishlistViewModel,
+    log: TripLogViewModel,
     onBack: () -> Unit,
     onAddObjective: () -> Unit,
     onOpenObjective: (String) -> Unit,
@@ -81,6 +84,7 @@ fun TripScreen(
     val ui by vm.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     CtScreen(
+        statusBarStrip = tab != 0,
         dock = { TabDock(tabs, tab, { tab = it }) },
         overlay = { if (tab == 1) WishlistFilterSheet(wishlist) },
     ) { bottom ->
@@ -91,6 +95,7 @@ fun TripScreen(
                 Overview(state, bottom.calculateBottomPadding(), onBack, onTab = { tab = it })
             }
             1 -> WishlistTab(wishlist, bottom, onBack, onAddObjective, onOpenObjective)
+            4 -> TripLogTab(log, bottom, onBack, onOpenObjective)
             // ponytail: placeholder until each tab's slice lands.
             else -> Column(Modifier.padding(horizontal = SizeTokens.edge)) {
                 TopBar(leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) })

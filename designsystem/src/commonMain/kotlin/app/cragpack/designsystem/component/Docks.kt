@@ -1,9 +1,22 @@
 package app.cragpack.designsystem.component
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -64,6 +77,69 @@ fun CtaDock(label: String, icon: LucideIcon, onClick: () -> Unit, modifier: Modi
             textAlign = TextAlign.Center,
             maxLines = 1,
         )
+    }
+}
+
+/** `.dock.log` — Attempt / Sent / Flash. The chosen one ([on]) is accent with a tick. */
+@Composable
+fun LogDock(labels: List<String>, on: Int?, onClick: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val c = CragpackTheme.colors
+    val shape = RoundedCornerShape(26.dp)
+    Dock(modifier) {
+        labels.forEachIndexed { i, label ->
+            val chosen = i == on
+            Row(
+                Modifier
+                    .weight(1f)
+                    .height(SizeTokens.tap)
+                    .ctClickable(true, Role.Button, shape) { onClick(i) }
+                    .semantics { selected = chosen }
+                    .clip(shape)
+                    .background(if (chosen) c.accent else c.bg),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+            ) {
+                CompositionLocalProvider(LocalContentColor provides if (chosen) c.onAccent else c.ink) {
+                    if (chosen) CtIcon(LucideIcon.Check, null, size = 20.dp)
+                    CtText(label, style = CragpackTheme.type.body.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * `.toast` — a quick result with one action (Undo), just above the dock. Shows while [message] is set,
+ * and calls [onTimeout] after a few seconds. Place it in [CtScreen]'s overlay slot.
+ */
+@Composable
+fun BoxScope.CtToast(message: String?, actionLabel: String, onAction: () -> Unit, onTimeout: () -> Unit) {
+    val c = CragpackTheme.colors
+    LaunchedEffect(message) { if (message != null) { delay(6_000); onTimeout() } }
+    var last by remember { mutableStateOf("") }
+    if (message != null) last = message
+    AnimatedVisibility(
+        message != null,
+        Modifier.align(Alignment.BottomCenter).padding(start = SizeTokens.edge, end = SizeTokens.edge, bottom = dockBottom() + 76.dp),
+        enter = fadeIn() + slideInVertically { it / 2 },
+        exit = fadeOut(),
+    ) {
+        val shape = RoundedCornerShape(28.dp)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .shadow(16.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)
+                .background(c.raised, shape)
+                .border(1.dp, c.line, shape)
+                .padding(start = 18.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            CtIcon(LucideIcon.CircleCheck, null, tint = c.accent)
+            CtText(last, Modifier.weight(1f), style = CragpackTheme.type.body.copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
+            CtButton(actionLabel, onAction, style = CtButtonStyle.Ghost, size = CtButtonSize.Sm, icon = LucideIcon.Undo2)
+        }
     }
 }
 

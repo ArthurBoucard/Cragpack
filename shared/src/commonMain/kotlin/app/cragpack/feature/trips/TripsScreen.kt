@@ -77,7 +77,7 @@ class TripsViewModel(graph: AppGraph) : ViewModel() {
 
 /** Screens 15 (first launch) and 01. */
 @Composable
-fun TripsScreen(vm: TripsViewModel, onNewTrip: () -> Unit, onOpenTrip: (String) -> Unit, onMore: () -> Unit) {
+fun TripsScreen(vm: TripsViewModel, onNewTrip: () -> Unit, onOpenTrip: (String) -> Unit, onLogbook: () -> Unit, onMore: () -> Unit) {
     val trips by vm.trips.collectAsStateWithLifecycle()
     CtScreen(dock = { CtaDock("New trip", LucideIcon.Plus, onNewTrip) }) { bottom ->
         LazyColumn(
@@ -86,8 +86,7 @@ fun TripsScreen(vm: TripsViewModel, onNewTrip: () -> Unit, onOpenTrip: (String) 
         ) {
             item {
                 TopBar(
-                    // ponytail: avatar opens My logbook once that screen exists.
-                    leading = { Avatar("", 1, size = AvatarSize.Xl) },
+                    leading = { Avatar("", 1, size = AvatarSize.Xl, onClick = onLogbook) },
                     center = { SyncStatusPill(SyncStatus.OnThisPhone) },
                     trailing = { CtIconButton(LucideIcon.EllipsisVertical, "More", onMore) },
                 )
