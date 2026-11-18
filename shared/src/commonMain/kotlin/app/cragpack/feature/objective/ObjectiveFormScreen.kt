@@ -42,6 +42,8 @@ import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.grade.Grade
 import app.cragpack.domain.objective.ClimbStyle
+import app.cragpack.feature.sector.NewSectorSheet
+import app.cragpack.feature.sector.SectorChips
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.SharingStarted
@@ -87,7 +89,7 @@ class ObjectiveFormViewModel(private val graph: AppGraph, private val tripId: St
 @Composable
 fun ObjectiveFormScreen(vm: ObjectiveFormViewModel, onClose: () -> Unit, onSaved: (String) -> Unit) {
     val sectors by vm.sectors.collectAsStateWithLifecycle()
-    var newSector by rememberSaveable { mutableStateOf<String?>(null) }
+    var newSector by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val form = vm.form
     CtScreen(
@@ -99,16 +101,7 @@ fun ObjectiveFormScreen(vm: ObjectiveFormViewModel, onClose: () -> Unit, onSaved
                 onClick = { scope.launch { onSaved(vm.save()) } },
             )
         },
-        overlay = {
-            CtBottomSheet(visible = newSector != null, title = "New sector", onDismiss = { newSector = null }) {
-                val name = newSector.orEmpty()
-                CtTextField(
-                    name, { newSector = it }, "Name", placeholder = "e.g. Bas Cuvier",
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
-                )
-                CtButton("Add sector", { vm.addSector(name); newSector = null }, size = CtButtonSize.Wide, enabled = name.isNotBlank())
-            }
-        },
+        overlay = { NewSectorSheet(newSector, { vm.addSector(it); newSector = false }, { newSector = false }) },
     ) { bottom ->
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = SizeTokens.edge),
@@ -132,14 +125,7 @@ fun ObjectiveFormScreen(vm: ObjectiveFormViewModel, onClose: () -> Unit, onSaved
                 Modifier.padding(horizontal = 3.dp),
             )
             Label("Sector")
-            ChipRow {
-                sectors.forEach { s ->
-                    CtChip(s.name, selected = s.id == form.sectorId, onClick = {
-                        vm.form = form.copy(sectorId = s.id.takeIf { it != form.sectorId })
-                    })
-                }
-                CtChip(null, selected = false, onClick = { newSector = "" }, icon = LucideIcon.Plus, contentDescription = "New sector")
-            }
+            SectorChips(sectors, form.sectorId, { vm.form = form.copy(sectorId = it) }, { newSector = true })
             // ponytail: Pin location needs the phone's location; it comes with the map (out of v1, D11 stores pins only).
             Spacer(Modifier.height(bottom.calculateBottomPadding()))
         }

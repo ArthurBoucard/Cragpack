@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import app.cragpack.designsystem.icon.LucideIcon
@@ -68,13 +70,14 @@ fun CtCard(
     todo: Boolean = false,
     radius: Dp = RadiusTokens.lg,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val c = CragpackTheme.colors
     val shape = RoundedCornerShape(radius)
     Box(
         modifier
-            .then(if (onClick != null) Modifier.ctClickable(true, Role.Button, shape, onClick) else Modifier)
+            .then(if (onClick != null) Modifier.ctClickable(true, Role.Button, shape, onLongClick, onClick) else Modifier)
             .then(
                 if (todo) Modifier.dashedBorder(c.ink, radius)
                 else Modifier.clip(shape).background(c.surface).border(1.dp, c.line, shape),
@@ -227,7 +230,10 @@ fun ListRow(
     ListRow(title, modifier, todo, onClick, leading, trailing, meta = line)
 }
 
-/** `.row` with a composable meta line (avatars, sent tick). */
+/**
+ * `.row` with a composable meta line (avatars, sent tick). [lifted] is the drag state from the design:
+ * tilted −3° with an accent outline.
+ */
 @Composable
 fun ListRow(
     title: String,
@@ -236,8 +242,22 @@ fun ListRow(
     onClick: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    lifted: Boolean = false,
     meta: (@Composable RowScope.() -> Unit)?,
-) = CtCard(modifier.fillMaxWidth().heightIn(min = SizeTokens.row), todo = todo, radius = 38.dp, onClick = onClick) {
+) = CtCard(
+    modifier
+        .fillMaxWidth()
+        .heightIn(min = SizeTokens.row)
+        .then(
+            if (lifted) Modifier
+                .graphicsLayer { rotationZ = -3f }
+                .shadow(16.dp, RoundedCornerShape(38.dp))
+                .border(2.dp, CragpackTheme.colors.accent, RoundedCornerShape(38.dp))
+            else Modifier,
+        ),
+    todo = todo, radius = 38.dp, onClick = onClick, onLongClick = onLongClick,
+) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = SizeTokens.row).padding(start = 10.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

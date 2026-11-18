@@ -5,6 +5,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -147,6 +150,95 @@ fun CtOption(label: String, icon: LucideIcon, onClick: () -> Unit, modifier: Mod
             CtText(label, Modifier.padding(top = 6.dp), style = semibold.copy(fontSize = 14.sp), maxLines = 1)
         }
     }
+
+/** `.switch` in a `.row` — a label with an on/off switch; on is accent. The whole row toggles. */
+@Composable
+fun CtSwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    val c = CragpackTheme.colors
+    val shape = RoundedCornerShape(RadiusTokens.lg)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .ctClickable(true, Role.Switch, shape) { onChange(!checked) }
+            .semantics { selected = checked }
+            .clip(shape)
+            .background(c.surface)
+            .border(1.dp, c.line, shape)
+            .padding(start = 20.dp, end = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CtText(label, Modifier.weight(1f), style = CragpackTheme.type.rowName, maxLines = 1)
+        Box(Modifier.size(56.dp, 32.dp).clip(CircleShape).background(if (checked) c.accent else c.surface2).padding(4.dp)) {
+            Box(
+                Modifier
+                    .align(if (checked) Alignment.CenterEnd else Alignment.CenterStart)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(if (checked) c.onAccent else c.ink),
+            )
+        }
+    }
+}
+
+/** `.days` / `.day` — one tab per trip day: the date over the sector (or Rest). Scrolls sideways. */
+@Composable
+fun DayTabs(days: List<Pair<String, String>>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val c = CragpackTheme.colors
+    val shape = RoundedCornerShape(26.dp)
+    val state = rememberLazyListState(initialFirstVisibleItemIndex = (selected - 1).coerceAtLeast(0))
+    LazyRow(
+        modifier,
+        state = state,
+        contentPadding = PaddingValues(horizontal = SizeTokens.edge),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        items(days.size) { i ->
+            val (date, sector) = days[i]
+            val on = i == selected
+            val fg = if (on) c.onSolid else c.ink
+            Column(
+                Modifier
+                    .size(84.dp, 64.dp)
+                    .ctClickable(true, Role.Tab, shape) { onSelect(i) }
+                    .semantics { this.selected = on }
+                    .clip(shape)
+                    .background(if (on) c.solid else c.surface)
+                    .then(if (on) Modifier else Modifier.border(1.dp, c.line, shape))
+                    .padding(horizontal = 6.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                CtText(date, style = CragpackTheme.type.label.copy(fontWeight = FontWeight.Medium), color = if (on) fg else c.ink2, maxLines = 1)
+                CtText(sector, style = semibold.copy(fontWeight = FontWeight.Bold), color = fg, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** `.pick` — an unplanned objective in the floating tray; tapping it adds it to the day. */
+@Composable
+fun TrayPick(name: String, grade: String, band: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val c = CragpackTheme.colors
+    Row(
+        modifier
+            .height(SizeTokens.tap)
+            .ctClickable(true, Role.Button, CircleShape, onClick)
+            .semantics { contentDescription = "Add $name" }
+            .clip(CircleShape)
+            .background(c.raised)
+            .border(1.dp, c.line, CircleShape)
+            .padding(start = 6.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        GradeChip(grade, band, size = GradeChipSize.Xs)
+        CtText(name, style = semibold, maxLines = 1)
+        Box(Modifier.size(32.dp).clip(CircleShape).background(c.surface2), contentAlignment = Alignment.Center) {
+            CtIcon(LucideIcon.Plus, null, size = 18.dp)
+        }
+    }
+}
 
 /** A row of options that wraps; used for chips that can outgrow one line (sectors). */
 @Composable

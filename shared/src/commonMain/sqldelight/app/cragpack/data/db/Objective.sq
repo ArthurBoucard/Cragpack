@@ -123,3 +123,23 @@ INSERT INTO media (id, owner_id, mime, size_bytes, upload_state, created_at, upd
 
 insertMediaCache:
 INSERT INTO media_cache (media_id, local_path, bytes, state) VALUES (?, ?, ?, 'saved');
+
+-- The plan of a whole trip: which objective is on which day, in order.
+selectPlan:
+SELECT p.objective_id, p.day_id, p.order_key
+FROM plan_item p JOIN objective o ON o.id = p.objective_id
+WHERE o.trip_id = ? AND p.deleted_at IS NULL AND o.deleted_at IS NULL
+ORDER BY p.order_key;
+
+selectDayPlan:
+SELECT p.objective_id, p.order_key
+FROM plan_item p JOIN objective o ON o.id = p.objective_id
+WHERE p.day_id = ? AND p.deleted_at IS NULL AND o.deleted_at IS NULL
+ORDER BY p.order_key;
+
+-- Plan, move or unplan (deleted_at set). One row per objective: it is on at most one day.
+setPlan:
+INSERT OR REPLACE INTO plan_item (objective_id, day_id, order_key, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?);
+
+selectPlanItem:
+SELECT day_id, order_key FROM plan_item WHERE objective_id = ?;

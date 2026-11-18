@@ -2,7 +2,7 @@ package app.cragpack.designsystem.component
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -56,7 +56,12 @@ fun CtIcon(
  * so the keyboard doesn't hide the choices below it.
  */
 @Composable
-internal fun Modifier.ctClickable(enabled: Boolean, role: Role, shape: Shape, onClick: () -> Unit): Modifier {
+internal fun Modifier.ctClickable(enabled: Boolean, role: Role, shape: Shape, onClick: () -> Unit): Modifier =
+    ctClickable(enabled, role, shape, null, onClick)
+
+/** [ctClickable] that also reacts to a long press (planner rows: move to another day). */
+@Composable
+internal fun Modifier.ctClickable(enabled: Boolean, role: Role, shape: Shape, onLongClick: (() -> Unit)?, onClick: () -> Unit): Modifier {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val focused by interaction.collectIsFocusedAsState()
@@ -66,5 +71,8 @@ internal fun Modifier.ctClickable(enabled: Boolean, role: Role, shape: Shape, on
         .graphicsLayer { if (pressed) { scaleX = 0.97f; scaleY = 0.97f } }
         .alpha(if (enabled) 1f else 0.4f)
         .then(if (focused) Modifier.border(3.dp, ink, shape) else Modifier)
-        .clickable(interaction, indication = null, enabled = enabled, role = role) { focus.clearFocus(); onClick() }
+        .combinedClickable(
+            interaction, indication = null, enabled = enabled, role = role,
+            onLongClick = onLongClick?.let { { focus.clearFocus(); it() } },
+        ) { focus.clearFocus(); onClick() }
 }

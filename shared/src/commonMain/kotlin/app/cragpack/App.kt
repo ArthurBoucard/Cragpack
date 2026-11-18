@@ -14,6 +14,9 @@ import app.cragpack.feature.logbook.LogSendViewModel
 import app.cragpack.feature.logbook.LogbookScreen
 import app.cragpack.feature.logbook.LogbookViewModel
 import app.cragpack.feature.newtrip.NewTripScreen
+import app.cragpack.feature.plan.EditDayScreen
+import app.cragpack.feature.plan.EditDayViewModel
+import app.cragpack.feature.plan.PlanViewModel
 import app.cragpack.feature.triplog.TripLogViewModel
 import app.cragpack.feature.newtrip.NewTripViewModel
 import app.cragpack.feature.objective.ObjectiveFormScreen
@@ -34,6 +37,7 @@ import kotlinx.serialization.Serializable
 @Serializable private data class ObjectiveFormRoute(val tripId: String, val objectiveId: String? = null)
 @Serializable private data class ObjectiveRoute(val id: String)
 @Serializable private data object LogbookRoute
+@Serializable private data class EditDayRoute(val tripId: String, val dayId: String)
 @Serializable private data object LogSendRoute
 
 /** Root of the app on both platforms. Trips home is the root (docs/03 navigation model). */
@@ -64,9 +68,11 @@ fun App(graph: AppGraph) = CragpackTheme {
                 viewModel { TripViewModel(graph, id) },
                 viewModel { WishlistViewModel(graph, id) },
                 viewModel { TripLogViewModel(graph, id) },
+                viewModel { PlanViewModel(graph, id) },
                 onBack = { nav.popBackStack() },
                 onAddObjective = { nav.navigate(ObjectiveFormRoute(id)) },
                 onOpenObjective = { nav.navigate(ObjectiveRoute(it)) },
+                onEditDay = { nav.navigate(EditDayRoute(id, it)) },
             )
         }
         composable<ObjectiveFormRoute> { entry ->
@@ -89,6 +95,10 @@ fun App(graph: AppGraph) = CragpackTheme {
                 onBack = { nav.popBackStack() },
                 onEdit = { vm.state.value?.let { nav.navigate(ObjectiveFormRoute(it.objective.tripId, id)) } },
             )
+        }
+        composable<EditDayRoute> { entry ->
+            val route = entry.toRoute<EditDayRoute>()
+            EditDayScreen(viewModel { EditDayViewModel(graph, route.tripId, route.dayId) }, onClose = { nav.popBackStack() })
         }
         composable<LogbookRoute> {
             LogbookScreen(

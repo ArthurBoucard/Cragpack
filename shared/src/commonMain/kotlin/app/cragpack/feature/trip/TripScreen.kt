@@ -49,6 +49,9 @@ import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.format.formatDateRange
 import app.cragpack.domain.trip.TripTiming
 import app.cragpack.domain.trip.timing
+import app.cragpack.feature.plan.PlanMoveSheet
+import app.cragpack.feature.plan.PlanTab
+import app.cragpack.feature.plan.PlanViewModel
 import app.cragpack.feature.triplog.TripLogTab
 import app.cragpack.feature.triplog.TripLogViewModel
 import app.cragpack.feature.wishlist.WishlistFilterSheet
@@ -77,16 +80,21 @@ fun TripScreen(
     vm: TripViewModel,
     wishlist: WishlistViewModel,
     log: TripLogViewModel,
+    plan: PlanViewModel,
     onBack: () -> Unit,
     onAddObjective: () -> Unit,
     onOpenObjective: (String) -> Unit,
+    onEditDay: (String) -> Unit,
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     CtScreen(
         statusBarStrip = tab != 0,
         dock = { TabDock(tabs, tab, { tab = it }) },
-        overlay = { if (tab == 1) WishlistFilterSheet(wishlist) },
+        overlay = {
+            if (tab == 1) WishlistFilterSheet(wishlist)
+            if (tab == 2) PlanMoveSheet(plan)
+        },
     ) { bottom ->
         val state = ui ?: return@CtScreen
         when (tab) {
@@ -95,6 +103,7 @@ fun TripScreen(
                 Overview(state, bottom.calculateBottomPadding(), onBack, onTab = { tab = it })
             }
             1 -> WishlistTab(wishlist, bottom, onBack, onAddObjective, onOpenObjective)
+            2 -> PlanTab(plan, bottom, onBack, onEditDay, onOpenObjective)
             4 -> TripLogTab(log, bottom, onBack, onOpenObjective)
             // ponytail: placeholder until each tab's slice lands.
             else -> Column(Modifier.padding(horizontal = SizeTokens.edge)) {
