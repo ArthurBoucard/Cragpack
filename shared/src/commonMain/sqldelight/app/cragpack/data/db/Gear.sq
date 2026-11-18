@@ -19,3 +19,40 @@ CREATE TABLE gear_claim (
     deleted_at INTEGER,
     PRIMARY KEY (gear_item_id, user_id)
 );
+
+-- The gear board: each item with its day (null = whole trip), in the order it was added.
+selectItems:
+SELECT g.id, g.name, g.quantity_needed, g.day_id, d.date AS day_date
+FROM gear_item g LEFT JOIN day d ON d.id = g.day_id
+WHERE g.trip_id = ? AND g.deleted_at IS NULL
+ORDER BY g.created_at;
+
+-- Who brings what, with each climber's crew colour, in join order.
+selectClaims:
+SELECT c.gear_item_id, c.user_id, coalesce(u.name, '') AS name, coalesce(m.color_index, 1) AS color_index, c.quantity
+FROM gear_claim c
+JOIN gear_item g ON g.id = c.gear_item_id
+LEFT JOIN user u ON u.id = c.user_id
+LEFT JOIN trip_member m ON m.trip_id = g.trip_id AND m.user_id = c.user_id
+WHERE g.trip_id = ? AND c.deleted_at IS NULL AND c.quantity > 0
+ORDER BY m.joined_at;
+
+insertItem:
+INSERT INTO gear_item (id, trip_id, name, quantity_needed, day_id, created_by, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+setNeeded:
+UPDATE gear_item SET quantity_needed = ?, updated_at = ? WHERE id = ?;
+
+deleteItem:
+UPDATE gear_item SET deleted_at = :now, updated_at = :now WHERE id = :id;
+
+-- One claim per climber per item, add/remove only (tech spec §3). Quantity 0 = not bringing (deleted_at set).
+setClaim:
+INSERT OR REPLACE INTO gear_claim (gear_item_id, user_id, quantity, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?);
+
+selectMyClaim:
+SELECT quantity FROM gear_claim WHERE gear_item_id = ? AND user_id = ? AND deleted_at IS NULL;
+
+selectNeeded:
+SELECT quantity_needed FROM gear_item WHERE id = ?;

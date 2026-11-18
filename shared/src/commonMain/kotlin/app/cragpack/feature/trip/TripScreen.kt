@@ -32,7 +32,6 @@ import app.cragpack.designsystem.component.CtCard
 import app.cragpack.designsystem.component.CtIconButton
 import app.cragpack.designsystem.component.CtScreen
 import app.cragpack.designsystem.component.CtText
-import app.cragpack.designsystem.component.EmptyState
 import app.cragpack.designsystem.component.LightStatusBarIcons
 import app.cragpack.designsystem.component.NowBadge
 import app.cragpack.designsystem.component.PhotoSurface
@@ -49,6 +48,9 @@ import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.format.formatDateRange
 import app.cragpack.domain.trip.TripTiming
 import app.cragpack.domain.trip.timing
+import app.cragpack.feature.gear.GearSheets
+import app.cragpack.feature.gear.GearTab
+import app.cragpack.feature.gear.GearViewModel
 import app.cragpack.feature.plan.PlanMoveSheet
 import app.cragpack.feature.plan.PlanTab
 import app.cragpack.feature.plan.PlanViewModel
@@ -81,6 +83,7 @@ fun TripScreen(
     wishlist: WishlistViewModel,
     log: TripLogViewModel,
     plan: PlanViewModel,
+    gear: GearViewModel,
     onBack: () -> Unit,
     onAddObjective: () -> Unit,
     onOpenObjective: (String) -> Unit,
@@ -94,6 +97,7 @@ fun TripScreen(
         overlay = {
             if (tab == 1) WishlistFilterSheet(wishlist)
             if (tab == 2) PlanMoveSheet(plan)
+            if (tab == 3) GearSheets(gear)
         },
     ) { bottom ->
         val state = ui ?: return@CtScreen
@@ -104,12 +108,8 @@ fun TripScreen(
             }
             1 -> WishlistTab(wishlist, bottom, onBack, onAddObjective, onOpenObjective)
             2 -> PlanTab(plan, bottom, onBack, onEditDay, onOpenObjective)
+            3 -> GearTab(gear, bottom, onBack)
             4 -> TripLogTab(log, bottom, onBack, onOpenObjective)
-            // ponytail: placeholder until each tab's slice lands.
-            else -> Column(Modifier.padding(horizontal = SizeTokens.edge)) {
-                TopBar(leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) })
-                EmptyState("${tabs[tab]} comes next", Modifier.fillMaxWidth().padding(top = 24.dp).height(240.dp))
-            }
         }
     }
 }

@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -179,6 +181,47 @@ fun CtSwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit, mo
             )
         }
     }
+}
+
+/**
+ * `.stepper` in a `.row.slim` — a label with − value +. [onStep] gets −1 or +1, never an absolute value,
+ * so quick taps add up even before the new value comes back. The buttons stop at the ends of [range].
+ */
+@Composable
+fun CtStepperRow(label: String, value: Int, onStep: (Int) -> Unit, modifier: Modifier = Modifier, range: IntRange = 0..99) {
+    val c = CragpackTheme.colors
+    val shape = RoundedCornerShape(RadiusTokens.lg)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .clip(shape)
+            .background(c.surface)
+            .border(1.dp, c.line, shape)
+            .padding(start = 20.dp, end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CtText(label, Modifier.weight(1f), style = CragpackTheme.type.rowName, maxLines = 1)
+        Row(
+            Modifier.height(SizeTokens.tap).clip(CircleShape).background(c.surface).border(1.dp, c.line, CircleShape).padding(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            // Small icon buttons are 44, the smallest tap target (rule 8); the pill comes to 52.
+            CtIconButton(LucideIcon.Minus, "Less $label", { onStep(-1) }, size = CtIconButtonSize.Sm, enabled = value > range.first)
+            CtText("$value", Modifier.widthIn(min = 40.dp), style = CragpackTheme.type.title, textAlign = TextAlign.Center)
+            CtIconButton(LucideIcon.Plus, "More $label", { onStep(+1) }, size = CtIconButtonSize.Sm, enabled = value < range.last)
+        }
+    }
+}
+
+/** `.qty` — "2/3": how many are covered out of how many are needed. */
+@Composable
+fun QuantityBox(text: String, modifier: Modifier = Modifier) = Box(
+    modifier.size(48.dp, 40.dp).clip(RoundedCornerShape(RadiusTokens.sm)).background(CragpackTheme.colors.surface2),
+    contentAlignment = Alignment.Center,
+) {
+    CtText(text, style = CragpackTheme.type.h3.copy(fontSize = 15.sp, lineHeight = 15.sp, letterSpacing = 0.sp), maxLines = 1)
 }
 
 /** `.days` / `.day` — one tab per trip day: the date over the sector (or Rest). Scrolls sideways. */

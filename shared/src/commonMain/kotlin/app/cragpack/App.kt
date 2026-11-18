@@ -9,6 +9,7 @@ import androidx.navigation.toRoute
 import app.cragpack.data.AppGraph
 import app.cragpack.designsystem.Catalog
 import app.cragpack.designsystem.theme.CragpackTheme
+import app.cragpack.feature.gear.GearViewModel
 import app.cragpack.feature.logbook.LogSendScreen
 import app.cragpack.feature.logbook.LogSendViewModel
 import app.cragpack.feature.logbook.LogbookScreen
@@ -69,6 +70,7 @@ fun App(graph: AppGraph) = CragpackTheme {
                 viewModel { WishlistViewModel(graph, id) },
                 viewModel { TripLogViewModel(graph, id) },
                 viewModel { PlanViewModel(graph, id) },
+                viewModel { GearViewModel(graph, id) },
                 onBack = { nav.popBackStack() },
                 onAddObjective = { nav.navigate(ObjectiveFormRoute(id)) },
                 onOpenObjective = { nav.navigate(ObjectiveRoute(it)) },

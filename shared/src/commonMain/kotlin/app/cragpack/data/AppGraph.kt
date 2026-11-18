@@ -24,6 +24,7 @@ class AppGraph(driver: SqlDriver, private val clock: Clock = Clock.System) {
     val objectives = ObjectiveRepository(db, myId, ::nowMillis)
     val logs = LogRepository(db, myId, ::nowMillis, ::today)
     val plan = PlanRepository(db, ::nowMillis)
+    val gear = GearRepository(db, myId, ::nowMillis)
 
     fun today(): LocalDate = clock.todayIn(TimeZone.currentSystemDefault())
 
