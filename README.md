@@ -18,7 +18,7 @@ The product spec is in [docs/](docs/) (start with [docs/00-handoff.md](docs/00-h
 
 Without a Mac, CI's `ios` job builds the iOS app on every push.
 
-**Checks:** `./gradlew :shared:testAndroidHostTest :androidApp:assembleDebug`
+**Checks:** `./gradlew :shared:testAndroidHostTest :shared:compileTestKotlinIosSimulatorArm64 :androidApp:assembleDebug` (the iOS task compiles, but does not run, the iOS code on any OS)
 
 ## Structure
 

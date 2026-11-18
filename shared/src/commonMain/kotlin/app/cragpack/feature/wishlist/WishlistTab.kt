@@ -89,7 +89,7 @@ internal fun options(ui: WishlistUi, filter: WishlistFilter, display: GradeDispl
     WishlistFilter.Sector -> ui.sectors + if (ui.all.any { it.sector == null }) listOf(FilterOption(NO_SECTOR, NO_SECTOR)) else emptyList()
     WishlistFilter.Who -> ui.crew.map { FilterOption(it.id, it.label) }
     // One option per colour band, labelled with the grades actually on the list: "6A – 6C".
-    WishlistFilter.Grade -> ui.all.groupBy { it.grade.band }.toSortedMap().map { (band, list) ->
+    WishlistFilter.Grade -> ui.all.groupBy { it.grade.band }.entries.sortedBy { it.key }.map { (band, list) ->
         val grades = list.map { it.grade }.distinct().sortedBy { it.sortIndex }.map { it.display(display) }
         FilterOption("$band", if (grades.size == 1) grades.single() else "${grades.first()} – ${grades.last()}")
     }

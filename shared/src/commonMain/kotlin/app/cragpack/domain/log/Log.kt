@@ -27,7 +27,7 @@ fun pyramid(sends: List<Grade>, scale: GradeScale): List<PyramidRow> {
         val inBand = all.filter { it.band in bands }
         return if (bands.first <= 1) "≤${inBand.last().value}" else "${inBand.first().value}–${inBand.last().value}"
     }
-    return sends.groupBy { if (it.band <= 4) 4 else it.band }.toSortedMap(compareByDescending { it }).map { (band, list) ->
+    return sends.groupBy { if (it.band <= 4) 4 else it.band }.entries.sortedByDescending { it.key }.map { (band, list) ->
         PyramidRow(if (band == 4) range(1..4) else range(band..band), band, list.size)
     }
 }
