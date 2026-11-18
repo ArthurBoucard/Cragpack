@@ -121,7 +121,12 @@ private fun Stats(sends: List<LogbookEntry>, scale: GradeScale) = CtCard(Modifie
 
 @Composable
 private fun Entry(e: LogbookEntry, today: kotlinx.datetime.LocalDate, onOpen: (String) -> Unit) {
-    val where = e.trip ?: e.crag.ifBlank { "Outside a trip" }
+    // A deleted trip falls back to its crag (snapshot, D2).
+    val where = when {
+        e.trip != null -> e.trip
+        e.onTrip -> e.crag.ifBlank { "Deleted trip" }
+        else -> e.crag.ifBlank { "Outside a trip" }
+    }
     ListRow(
         e.name,
         meta = "$where · ${formatDay(e.date, today)}",

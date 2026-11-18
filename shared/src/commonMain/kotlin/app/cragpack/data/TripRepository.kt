@@ -68,20 +68,57 @@ class TripRepository internal constructor(
         db.transaction {
             db.tripQueries.insert(id, name.trim(), crag.trim(), start.toString(), end.toString(), myId, t, t)
             db.tripQueries.insertMember(id, myId, "organiser", 1, t, t)
-            var date = start
-            while (date <= end) {
-                db.tripQueries.insertDay(newId(), id, date.toString(), t, t)
-                date = date.plus(DatePeriod(days = 1))
-            }
+            datesOf(start, end).forEach { db.tripQueries.insertDay(newId(), id, it.toString(), t, t) }
         }
         return id
     }
+
+    fun rename(id: String, name: String, crag: String) {
+        require(name.isNotBlank()) { "A trip needs a name" }
+        db.tripQueries.updateInfo(name.trim(), crag.trim(), now(), id)
+    }
+
+    /**
+     * New dates: missing days are added; days that fall outside are removed, their objectives go back
+     * to the unplanned tray and their gear becomes whole-trip gear, so nothing silently disappears.
+     */
+    fun changeDates(id: String, start: LocalDate, end: LocalDate) {
+        require(end >= start) { "A trip can't end before it starts" }
+        val t = now()
+        db.transaction {
+            db.tripQueries.updateDates(start.toString(), end.toString(), t, id)
+            val existing = db.tripQueries.selectDayDates(id).executeAsList()
+            existing.filter { LocalDate.parse(it.date) !in start..end }.forEach { day ->
+                db.objectiveQueries.unplanDay(t, day.id)
+                db.gearQueries.clearDay(t, day.id)
+                db.tripQueries.deleteDay(t, day.id)
+            }
+            val kept = existing.map { it.date }.toSet()
+            datesOf(start, end).filter { it.toString() !in kept }.forEach { db.tripQueries.insertDay(newId(), id, it.toString(), t, t) }
+        }
+    }
+
+    /** Records a cover photo already copied to [localPath] by [MediaFiles]. */
+    fun setCover(id: String, mediaId: String, mime: String, bytes: Long, localPath: String) {
+        val t = now()
+        db.transaction {
+            db.objectiveQueries.insertMedia(mediaId, myId, mime, bytes, t, t)
+            db.objectiveQueries.insertMediaCache(mediaId, localPath, bytes)
+            db.tripQueries.setCover(mediaId, t, id)
+        }
+    }
+
+    /** Gone for everyone; each climber's sends stay in their logbook (D2, screen 30). */
+    fun delete(id: String) = db.tripQueries.deleteTrip(now(), id)
+
+    private fun datesOf(start: LocalDate, end: LocalDate) =
+        generateSequence(start) { it.plus(DatePeriod(days = 1)) }.takeWhile { it <= end }
 
     private fun observeCrews(): Flow<Map<String, List<Person>>> =
         db.tripQueries.selectMembers().asFlow().mapToList(io).map { rows ->
             rows.groupBy({ it.trip_id }, { Person(it.user_id, it.name, it.color_index.toInt()) })
         }
 
-    private fun toTrip(id: String, name: String, crag: String, start: String, end: String) =
-        Trip(id, name, crag, LocalDate.parse(start), LocalDate.parse(end))
+    private fun toTrip(id: String, name: String, crag: String, start: String, end: String, coverPath: String?) =
+        Trip(id, name, crag, LocalDate.parse(start), LocalDate.parse(end), coverPath)
 }

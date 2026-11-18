@@ -63,7 +63,7 @@ ORDER BY l.date DESC, l.created_at;
 -- My logbook (26): every trip and outside trips, newest first. Uses the snapshot only.
 selectMine:
 SELECT l.id, l.style, l.date, l.snapshot_name, l.snapshot_grade_scale, l.snapshot_grade_value, l.snapshot_crag,
-    t.name AS trip_name, o.id AS objective_id
+    l.trip_id IS NOT NULL AS on_trip, t.name AS trip_name, o.id AS objective_id
 FROM log_entry l
 LEFT JOIN trip t ON t.id = l.trip_id AND t.deleted_at IS NULL
 LEFT JOIN objective o ON o.id = l.objective_id AND o.deleted_at IS NULL

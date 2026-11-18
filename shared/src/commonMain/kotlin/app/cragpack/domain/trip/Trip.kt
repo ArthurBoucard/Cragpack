@@ -3,7 +3,8 @@ package app.cragpack.domain.trip
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.daysUntil
 
-data class Trip(val id: String, val name: String, val crag: String, val start: LocalDate, val end: LocalDate) {
+/** [coverPath] is the cover photo on this phone, relative to the app's files folder (null = striped placeholder). */
+data class Trip(val id: String, val name: String, val crag: String, val start: LocalDate, val end: LocalDate, val coverPath: String? = null) {
     val days: Int get() = start.daysUntil(end) + 1
 }
 

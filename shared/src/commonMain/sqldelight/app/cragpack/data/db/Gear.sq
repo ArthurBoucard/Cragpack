@@ -56,3 +56,7 @@ SELECT quantity FROM gear_claim WHERE gear_item_id = ? AND user_id = ? AND delet
 
 selectNeeded:
 SELECT quantity_needed FROM gear_item WHERE id = ?;
+
+-- A day left the trip: its gear is still needed, now for the whole trip.
+clearDay:
+UPDATE gear_item SET day_id = NULL, updated_at = ? WHERE day_id = ?;

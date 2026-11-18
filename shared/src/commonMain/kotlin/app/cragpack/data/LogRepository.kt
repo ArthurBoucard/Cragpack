@@ -32,7 +32,9 @@ data class LogbookEntry(
     val date: LocalDate,
     val name: String,
     val grade: Grade,
-    /** The trip's name, or null for "Outside a trip" (or a deleted trip: then [crag] is shown). */
+    /** Logged on a trip, even one deleted since (then [trip] is null). */
+    val onTrip: Boolean,
+    /** The trip's name while the trip exists. */
     val trip: String?,
     val crag: String,
     /** Set while the objective still exists, so the entry can open it. */
@@ -110,7 +112,7 @@ class LogRepository internal constructor(
                 LogbookEntry(
                     it.id, LogStyle.of(it.style), LocalDate.parse(it.date), it.snapshot_name,
                     Grade(GradeScale.valueOf(it.snapshot_grade_scale), it.snapshot_grade_value),
-                    it.trip_name, it.snapshot_crag, it.objective_id,
+                    it.on_trip, it.trip_name, it.snapshot_crag, it.objective_id,
                 )
             }
         }

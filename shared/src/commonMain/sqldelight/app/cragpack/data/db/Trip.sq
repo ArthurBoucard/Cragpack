@@ -45,11 +45,35 @@ CREATE TABLE day (
     deleted_at INTEGER
 );
 
+-- With the cover photo's path on this phone, if there is one.
 selectAll:
-SELECT id, name, crag, start_date, end_date FROM trip WHERE deleted_at IS NULL;
+SELECT t.id, t.name, t.crag, t.start_date, t.end_date, c.local_path AS cover_path
+FROM trip t LEFT JOIN media_cache c ON c.media_id = t.cover_media_id
+WHERE t.deleted_at IS NULL;
 
 selectById:
-SELECT id, name, crag, start_date, end_date FROM trip WHERE id = ? AND deleted_at IS NULL;
+SELECT t.id, t.name, t.crag, t.start_date, t.end_date, c.local_path AS cover_path
+FROM trip t LEFT JOIN media_cache c ON c.media_id = t.cover_media_id
+WHERE t.id = ? AND t.deleted_at IS NULL;
+
+updateInfo:
+UPDATE trip SET name = ?, crag = ?, updated_at = ? WHERE id = ?;
+
+updateDates:
+UPDATE trip SET start_date = ?, end_date = ?, updated_at = ? WHERE id = ?;
+
+setCover:
+UPDATE trip SET cover_media_id = ?, updated_at = ? WHERE id = ?;
+
+-- Soft delete: the trip and everything in it disappear; log entries keep their snapshot (D2).
+deleteTrip:
+UPDATE trip SET deleted_at = :now, updated_at = :now WHERE id = :id;
+
+selectDayDates:
+SELECT id, date FROM day WHERE trip_id = ? AND deleted_at IS NULL;
+
+deleteDay:
+UPDATE day SET deleted_at = :now, updated_at = :now WHERE id = :id;
 
 insert:
 INSERT INTO trip (id, name, crag, start_date, end_date, owner_id, created_at, updated_at)

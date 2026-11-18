@@ -20,6 +20,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.cragpack.data.AppGraph
+import app.cragpack.data.MediaFiles
 import app.cragpack.domain.trip.Trip
 import app.cragpack.designsystem.component.BigNumber
 import app.cragpack.designsystem.component.ClimberStat
@@ -71,7 +72,11 @@ fun RecapScreen(vm: RecapViewModel, onBack: () -> Unit) {
         val (trip, crewSize, r) = ui ?: return@CtScreen
         LightStatusBarIcons()
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(SizeTokens.gap * 2)) {
-            PhotoSurface(Modifier.fillMaxWidth(), RoundedCornerShape(bottomStart = RadiusTokens.xl, bottomEnd = RadiusTokens.xl)) {
+            PhotoSurface(
+                Modifier.fillMaxWidth(),
+                RoundedCornerShape(bottomStart = RadiusTokens.xl, bottomEnd = RadiusTokens.xl),
+                imagePath = trip.coverPath?.let(MediaFiles::absolute),
+            ) {
                 Column(Modifier.padding(start = SizeTokens.edge, end = SizeTokens.edge, bottom = SizeTokens.edge)) {
                     TopBar(leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) })
                     Spacer(Modifier.height(120.dp))

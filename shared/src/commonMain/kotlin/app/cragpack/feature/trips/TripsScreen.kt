@@ -20,6 +20,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.cragpack.data.AppGraph
+import app.cragpack.data.MediaFiles
 import app.cragpack.designsystem.component.Avatar
 import app.cragpack.designsystem.component.AvatarSize
 import app.cragpack.designsystem.component.AvatarStack
@@ -55,6 +56,8 @@ data class TripCardUi(
     val place: String,
     val timing: TripTiming,
     val crew: List<Person>,
+    /** Absolute path of the cover photo, or null for the striped placeholder. */
+    val cover: String?,
     /** Past trips: "Oct · 31 sends" */
     val pastLine: String,
 )
@@ -70,6 +73,7 @@ class TripsViewModel(graph: AppGraph) : ViewModel() {
                 place = listOf(trip.crag, formatDateRange(trip.start, trip.end)).filter { it.isNotBlank() }.joinToString(" · "),
                 timing = trip.timing(today),
                 crew = crew,
+                cover = trip.coverPath?.let(MediaFiles::absolute),
                 pastLine = "${formatMonth(trip.start, today)} · $sends ${if (sends == 1) "send" else "sends"}",
             )
         }
@@ -119,7 +123,7 @@ fun TripsScreen(
 
 @Composable
 private fun NowCard(trip: TripCardUi, now: TripTiming.Now, onClick: () -> Unit) {
-    PhotoCard(Modifier.height(290.dp), onClick) {
+    PhotoCard(Modifier.height(290.dp), trip.cover, onClick) {
         NowBadge("Now · day ${now.day}/${now.days}", Modifier.align(Alignment.TopStart).padding(12.dp))
         Column(Modifier.align(Alignment.BottomStart).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CtText(trip.name, style = CragpackTheme.type.h2, maxLines = 2)
@@ -132,7 +136,7 @@ private fun NowCard(trip: TripCardUi, now: TripTiming.Now, onClick: () -> Unit) 
 @Composable
 private fun UpcomingCard(trip: TripCardUi, onClick: () -> Unit) {
     // ponytail: the Download button arrives with the offline pack (Phase 3).
-    PhotoCard(Modifier.height(150.dp), onClick) {
+    PhotoCard(Modifier.height(150.dp), trip.cover, onClick) {
         Column(Modifier.align(Alignment.BottomStart).padding(20.dp)) {
             CtText(trip.name, style = CragpackTheme.type.h3, maxLines = 1)
             CtText(trip.place, maxLines = 1)
@@ -146,11 +150,11 @@ private fun PastRow(trip: TripCardUi, onClick: () -> Unit, onRecap: () -> Unit) 
         title = trip.name,
         meta = trip.pastLine,
         onClick = onClick,
-        leading = { PhotoSurface(Modifier.size(54.dp), CircleShape) },
+        leading = { PhotoSurface(Modifier.size(54.dp), CircleShape, imagePath = trip.cover) },
         trailing = { CtButton("Recap", onRecap) },
     )
 }
 
 @Composable
-private fun PhotoCard(modifier: Modifier, onClick: () -> Unit, content: @Composable BoxScope.() -> Unit) =
-    PhotoSurface(modifier.fillMaxWidth(), onClick = onClick, content = content)
+private fun PhotoCard(modifier: Modifier, cover: String?, onClick: () -> Unit, content: @Composable BoxScope.() -> Unit) =
+    PhotoSurface(modifier.fillMaxWidth(), onClick = onClick, imagePath = cover, content = content)

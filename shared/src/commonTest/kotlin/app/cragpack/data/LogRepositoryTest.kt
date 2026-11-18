@@ -51,6 +51,7 @@ class LogRepositoryTest {
         val book = logs.observeLogbook().first()
         assertEquals(listOf("La Joker", "Las Cuevas"), book.map { it.name })
         assertEquals(listOf("Font Easter", null), book.map { it.trip })
+        assertEquals(listOf(true, false), book.map { it.onTrip })
         assertEquals(null, book.first().objectiveId)
         assertEquals(emptyList(), logs.observeTripLog(tripId).first())
     }

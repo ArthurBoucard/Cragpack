@@ -23,6 +23,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.cragpack.data.AppGraph
+import app.cragpack.data.MediaFiles
 import app.cragpack.data.PlannedDay
 import app.cragpack.data.TripDetail
 import app.cragpack.designsystem.component.AvatarSize
@@ -88,6 +89,7 @@ fun TripScreen(
     onAddObjective: () -> Unit,
     onOpenObjective: (String) -> Unit,
     onEditDay: (String) -> Unit,
+    onSettings: () -> Unit,
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -104,7 +106,7 @@ fun TripScreen(
         when (tab) {
             0 -> {
                 LightStatusBarIcons()
-                Overview(state, bottom.calculateBottomPadding(), onBack, onTab = { tab = it })
+                Overview(state, bottom.calculateBottomPadding(), onBack, onSettings, onTab = { tab = it })
             }
             1 -> WishlistTab(wishlist, bottom, onBack, onAddObjective, onOpenObjective)
             2 -> PlanTab(plan, bottom, onBack, onEditDay, onOpenObjective)
@@ -115,15 +117,19 @@ fun TripScreen(
 }
 
 @Composable
-private fun Overview(ui: TripUi, bottom: androidx.compose.ui.unit.Dp, onBack: () -> Unit, onTab: (Int) -> Unit) {
+private fun Overview(ui: TripUi, bottom: androidx.compose.ui.unit.Dp, onBack: () -> Unit, onSettings: () -> Unit, onTab: (Int) -> Unit) {
     val (trip, crew, stats) = ui.detail
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
-        PhotoSurface(Modifier.fillMaxWidth(), RoundedCornerShape(bottomStart = RadiusTokens.xl, bottomEnd = RadiusTokens.xl)) {
+        PhotoSurface(
+            Modifier.fillMaxWidth(),
+            RoundedCornerShape(bottomStart = RadiusTokens.xl, bottomEnd = RadiusTokens.xl),
+            imagePath = trip.coverPath?.let(MediaFiles::absolute),
+        ) {
             Column(Modifier.padding(start = SizeTokens.edge, end = SizeTokens.edge, bottom = SizeTokens.edge)) {
                 TopBar(
                     leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) },
                     center = { SyncStatusPill(SyncStatus.OnThisPhone) },
-                    // ponytail: ⋮ opens Trip settings once that screen exists.
+                    trailing = { CtIconButton(LucideIcon.EllipsisVertical, "Trip settings", onSettings) },
                 )
                 Spacer(Modifier.height(120.dp))
                 if (ui.timing is TripTiming.Now) NowBadge("Day ${ui.timing.day}/${ui.timing.days}", Modifier.padding(bottom = 12.dp))

@@ -38,6 +38,8 @@ import app.cragpack.feature.trip.TripViewModel
 import app.cragpack.feature.triplog.TripLogViewModel
 import app.cragpack.feature.trips.TripsScreen
 import app.cragpack.feature.trips.TripsViewModel
+import app.cragpack.feature.tripsettings.TripSettingsScreen
+import app.cragpack.feature.tripsettings.TripSettingsViewModel
 import app.cragpack.feature.wishlist.WishlistViewModel
 import kotlinx.serialization.Serializable
 
@@ -46,6 +48,7 @@ import kotlinx.serialization.Serializable
 @Serializable private data class TripRoute(val id: String)
 @Serializable private data object SettingsRoute
 @Serializable private data class RecapRoute(val tripId: String)
+@Serializable private data class TripSettingsRoute(val tripId: String)
 @Serializable private data class ObjectiveFormRoute(val tripId: String, val objectiveId: String? = null)
 @Serializable private data class ObjectiveRoute(val id: String)
 @Serializable private data object LogbookRoute
@@ -100,6 +103,7 @@ private fun AppNav(graph: AppGraph) {
                 onAddObjective = { nav.navigate(ObjectiveFormRoute(id)) },
                 onOpenObjective = { nav.navigate(ObjectiveRoute(it)) },
                 onEditDay = { nav.navigate(EditDayRoute(id, it)) },
+                onSettings = { nav.navigate(TripSettingsRoute(id)) },
             )
         }
         composable<ObjectiveFormRoute> { entry ->
@@ -138,6 +142,14 @@ private fun AppNav(graph: AppGraph) {
         }
         composable<LogSendRoute> { LogSendScreen(viewModel { LogSendViewModel(graph) }, onClose = { nav.popBackStack() }) }
         composable<SettingsRoute> { SettingsScreen(viewModel { SettingsViewModel(graph) }, onBack = { nav.popBackStack() }) }
+        composable<TripSettingsRoute> { entry ->
+            val tripId = entry.toRoute<TripSettingsRoute>().tripId
+            TripSettingsScreen(
+                viewModel { TripSettingsViewModel(graph, tripId) },
+                onBack = { nav.popBackStack() },
+                onDeleted = { nav.popBackStack(TripsRoute, inclusive = false) },
+            )
+        }
         composable<RecapRoute> { entry ->
             val tripId = entry.toRoute<RecapRoute>().tripId
             RecapScreen(viewModel { RecapViewModel(graph, tripId) }, onBack = { nav.popBackStack() })
