@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cragpack System</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./cragpack.css">
+<style>
+/* Docs only. Every specimen below uses the real classes from cragpack.css,
+   so this page changes when the system changes. */
+body{margin:0;background:#ddd8d0;font-family:'Instrument Sans',system-ui,sans-serif;color:#1c1814}
+.canvas{padding:64px;display:flex;flex-direction:column;gap:40px;width:1624px}
+.canvas-title{margin:0;font:700 40px 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em}
+.cols{display:flex;gap:40px;align-items:flex-start}
+.panel{width:792px;padding:32px;border-radius:40px;background:var(--bg);box-sizing:border-box;display:flex;flex-direction:column;gap:32px}
+.rules{width:792px;padding:32px;border-radius:40px;background:#f3ebe0;box-sizing:border-box;display:flex;flex-direction:column;gap:16px}
+.rules ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px;font-size:16px;line-height:1.4}
+.rules code,.code{font:500 13px 'JetBrains Mono',monospace}
+.sect{display:flex;flex-direction:column;gap:16px}
+.sect-title{margin:0;font:700 13px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2)}
+.rules .sect-title{color:#5c5145}
+.spec{display:flex;flex-wrap:wrap;gap:20px 16px;align-items:flex-end}
+.item{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.item .code{color:var(--ink2)}
+.sw{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.sw .chipcolor{width:100%;height:56px;border-radius:20px;border:1px solid var(--line);box-sizing:border-box}
+.sw b{font:500 13px 'JetBrains Mono',monospace}
+.sw span{font-size:13px;color:var(--ink2)}
+.demo-dock .dock{position:static;width:440px;box-shadow:none}
+.band{display:grid;grid-template-columns:150px repeat(3,minmax(0,1fr));gap:12px 16px;align-items:center}
+.conv{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:12px 6px}
+.conv > div{display:flex;flex-direction:column;align-items:center;gap:6px;font:600 13px 'Instrument Sans',sans-serif}
+.typespec{display:flex;flex-direction:column;gap:14px}
+.typespec > div{display:flex;align-items:baseline;gap:16px}
+.typespec .code{width:110px;flex:none;color:var(--ink2)}
+.icons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 8px}
+.icons > div{display:flex;align-items:center;gap:10px}
+.panel .bottom-sheet,.panel .dialog,.panel .toast{position:static;transform:none;box-shadow:none}
+.panel .bottom-sheet{width:420px;border-radius:var(--r-xl);padding:12px 16px 16px}
+.panel .dialog{width:360px;box-sizing:border-box}
+.panel .toast{width:420px}
+</style>
+</helmet>
+<svg class="sprite" aria-hidden="true">
+<symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"></path></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></symbol>
+<symbol id="i-ellipsis-vertical" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"></path><path d="M12 5v14"></path></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"></path></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"></path></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" x2="12" y1="2" y2="15"></line></symbol>
+<symbol id="i-navigation" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"></rect><rect x="6" y="4" width="4" height="16" rx="1"></rect></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"></polygon></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></symbol>
+<symbol id="i-grip-vertical" viewBox="0 0 24 24"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></symbol>
+<symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></symbol>
+<symbol id="i-log-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></symbol>
+<symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"></path><rect x="2" y="6" width="14" height="12" rx="2"></rect></symbol>
+<symbol id="i-file-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></symbol>
+<symbol id="i-notebook-pen" viewBox="0 0 24 24"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"></path><path d="M2 6h4"></path><path d="M2 10h4"></path><path d="M2 14h4"></path><path d="M2 18h4"></path><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"></path></symbol>
+<symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></symbol>
+<symbol id="i-undo-2" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"></path></symbol>
+<symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="m2 2 20 20"></path><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"></path><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"></path></symbol>
+<symbol id="i-wifi" viewBox="0 0 24 24"><path d="M12 20h.01"></path><path d="M2 8.82a15 15 0 0 1 20 0"></path><path d="M5 12.859a10 10 0 0 1 14 0"></path><path d="M8.5 16.429a5 5 0 0 1 7 0"></path></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></symbol>
+<symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></symbol>
+<symbol id="i-hard-drive" viewBox="0 0 24 24"><line x1="22" x2="2" y1="12" y2="12"></line><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path><line x1="6" x2="6.01" y1="16" y2="16"></line><line x1="10" x2="10.01" y1="16" y2="16"></line></symbol>
+<symbol id="i-user-minus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="22" x2="16" y1="11" y2="11"></line></symbol>
+<symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></symbol>
+<symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></symbol>
+<symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 7v14"></path><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"></path></symbol>
+<symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></symbol>
+<symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></symbol>
+<symbol id="i-user-round" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></symbol>
+</svg>
+<main class="canvas">
+  <h1 class="canvas-title">Cragpack system</h1>
+
+  <div class="cols">
+    <section class="rules" aria-label="Rules">
+      <h2 class="sect-title">Rules</h2>
+      <ol>
+        <li>Orange is for doing: actions, ticks, “now” and progress. Never a warning.</li>
+        <li>A dashed outline means missing or not done yet.</li>
+        <li>Offline dot: full = saved · half = partly saved · ring = saving · empty = not saved. ↓ is only the Download button.</li>
+        <li>One primary action per screen, in the dock.</li>
+        <li>Tap targets 44px or more (52px default). Text 13px or more.</li>
+        <li>Grades: the class is “g” + the grade’s first digit (<code>.g1</code> – <code>.g9</code>). Font for boulders (1 – 9A), French for routes (1a – 9c). V grades take the class of their Font equivalent. 1–2 and 3–4 share a soft colour.</li>
+        <li>Photo surfaces stay dark and the recap sheet stays light, in both themes.</li>
+        <li>Safe areas: content starts below the status bar and the dock sits above the home indicator (<code>--safe-top</code>, <code>--safe-bottom</code>, the OS insets in the app). Scrolling lists end with <code>--dock-space</code>.</li>
+        <li>Icons are Lucide (<code>icons.svg</code>), never text symbols.</li>
+        <li>A sheet for choices and short forms, a dialog only for what can’t be undone, a toast to offer Undo.</li>
+        <li>Danger red is only for delete, remove and leave.</li>
+        <li>Local first: planning needs no account. The account prompt opens only to invite, join, share a link or sync devices; local trips move into the new account.</li>
+        <li>New screens use only these classes. A new value starts as a token in <code>cragpack.css</code> and <code>cragpack.tokens.json</code>.</li>
+      </ol>
+      <h2 class="sect-title" style="padding-top:12px">Screen anatomy</h2>
+      <ol>
+        <li>Top bar: back or ✕ · status pill · one icon action.</li>
+        <li>Title (<code>.h1</code>), or a photo hero with <code>.title-xl</code>.</li>
+        <li>Content: <code>.row</code> lists, <code>.card</code> tiles, <code>.field</code> forms.</li>
+        <li>Dock: tab bar inside a trip, one call to action in a flow, log actions on a boulder or route.</li>
+        <li>Forms and flows close with <code>x</code> at top left; drill-downs go back with <code>chevron-left</code>.</li>
+      </ol>
+    </section>
+
+    <section class="ct panel" aria-label="Foundations">
+      <div class="sect">
+        <h2 class="sect-title">Grades · .g1 – .g9</h2>
+        <div class="band">
+          <span></span><span class="code sub">Boulder · Font</span><span class="code sub">Route · French</span><span class="code sub">Boulder · V</span>
+          <div class="bar" style="justify-content:flex-start;gap:10px"><div class="grade sm g2">2</div><span class="code">.g1 .g2</span></div><div>1 – 2+</div><div>1a – 2c</div><div>VB</div>
+          <div class="bar" style="justify-content:flex-start;gap:10px"><div class="grade sm g4">4</div><span class="code">.g3 .g4</span></div><div>3 – 4+</div><div>3a – 4c</div><div>VB – V0+</div>
+          <div class="bar" style="justify-content:flex-start;gap:10px"><div class="grade sm g5">5+</div><span class="code">.g5</span></div><div>5 – 5+</div><div>5a – 5c</div><div>V1 – V2</div>
+          <div class="bar" style="justify-content:flex-start;gap:10px"><div class="grade sm g6">6B</div><span class="code">.g6</span></div><div>6A – 6C+</div><div>6a – 6c+</div><div>V3 – V5</div>
+          <div class="bar" style="justify-content:flex-start;gap:10px"><div class="grade sm g7">7B</div><span class="code">.g7</span></div><div>7A – 7C+</div><div>7a – 7c+</div><div>V6 – V10</div>
+          <div class="bar" style="justify-content:flex-start;gap:10px"><div class="grade sm g8">8A</div><span class="code">.g8</span></div><div>8A – 8C+</div><div>8a – 8c+</div><div>V11 – V16</div>
+          <div class="bar" style="justify-content:flex-start;gap:10px"><div class="grade sm g9">9A</div><span class="code">.g9</span></div><div>9A</div><div>9a – 9c</div><div>V17</div>
+        </div>
+        <h2 class="sect-title">Font ↔ V</h2>
+        <div class="conv">
+          <sc-for list="{{fontToV}}" as="c" hint-placeholder-count="26">
+          <div><span class="gtag {{c.cls}}">{{c.font}}</span><span>{{c.v}}</span></div>
+          </sc-for>
+        </div>
+        <div class="spec">
+          <div class="item"><div class="grade xl g7">7A</div><span class="code">.grade.xl</span></div>
+          <div class="item"><div class="grade g7">7A</div><span class="code">.grade</span></div>
+          <div class="item"><div class="grade sm g7">7A</div><span class="code">.grade.sm</span></div>
+          <div class="item"><div class="grade xs g7">7A</div><span class="code">.grade.xs</span></div>
+          <div class="item"><div class="gtag g7">7A</div><span class="code">.gtag</span></div>
+        </div>
+      </div>
+      <div class="sect">
+        <h2 class="sect-title">People · .av .p-*</h2>
+        <div class="spec">
+          <div class="item"><div class="avs"><div class="av lg p-l">L</div><div class="av lg p-t">T</div><div class="av lg p-i">I</div><div class="av lg p-m">M</div><div class="av lg p-s">S</div></div><span class="code">.av.lg</span></div>
+          <div class="item"><div class="avs"><div class="av md p-l">L</div><div class="av md p-t">T</div></div><span class="code">.av.md</span></div>
+          <div class="item"><div class="avs"><div class="av p-l">L</div><div class="av p-t">T</div></div><span class="code">.av</span></div>
+          <div class="item"><div class="avs"><div class="av sm p-l">L</div><div class="av sm p-t">T</div></div><span class="code">.av.sm</span></div>
+        </div>
+      </div>
+      <div class="sect">
+        <h2 class="sect-title">Icons · Lucide · .i .i.sm .i.lg .i.fill</h2>
+        <div class="icons">
+          <sc-for list="{{icons}}" as="ic" hint-placeholder-count="38">
+          <div><svg class="i" aria-hidden="true"><use href="#i-{{ic}}"></use></svg><span class="code">{{ic}}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div class="sect">
+        <h2 class="sect-title">Type</h2>
+        <div class="typespec">
+          <div><span class="code">.title-xl 40</span><span class="title-xl">Font Easter</span></div>
+          <div><span class="code">.h1 34</span><span class="h1" style="padding:0">Wishlist</span></div>
+          <div><span class="code">.h3 26</span><span class="h3">Bas Cuvier</span></div>
+          <div><span class="code">.big 24</span><span class="big">14<span> /18 saved</span></span></div>
+          <div><span class="code">body 15</span><span>Fontainebleau · 17–21 Apr</span></div>
+          <div><span class="code">.label 13</span><span class="sub" style="font-size:13px;font-weight:600">Crag</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="cols">
+    <sc-for list="{{themes}}" as="t" hint-placeholder-count="2">
+    <section class="ct panel {{t.cls}}" aria-label="{{t.name}} components">
+      <h2 class="h2">{{t.name}}</h2>
+
+      <div class="sect">
+        <h2 class="sect-title">Colour roles</h2>
+        <div class="sw">
+          <div class="item"><div class="chipcolor" style="background:var(--bg)"></div><b>--bg</b><span>Screen</span></div>
+          <div class="item"><div class="chipcolor" style="background:var(--ink)"></div><b>--ink</b><span>Text</span></div>
+          <div class="item"><div class="chipcolor" style="background:var(--ink2)"></div><b>--ink2</b><span>Secondary text</span></div>
+          <div class="item"><div class="chipcolor" style="background:var(--surface)"></div><b>--surface</b><span>Card, row</span></div>
+          <div class="item"><div class="chipcolor" style="background:var(--solid)"></div><b>--solid</b><span>Selected, dock</span></div>
+          <div class="item"><div class="chipcolor" style="background:var(--accent)"></div><b>--accent</b><span>Action, tick, now</span></div>
+          <div class="item"><div class="chipcolor" style="background:var(--accent-ink)"></div><b>--accent-ink</b><span>Accent as text</span></div>
+          <div class="item"><div class="chipcolor" style="background:none;border:2px dashed var(--ink)"></div><b>.todo</b><span>Missing, not done</span></div>
+        </div>
+      </div>
+
+      <div class="sect">
+        <h2 class="sect-title">Status · .status .tag .st</h2>
+        <div class="spec">
+          <div class="item"><div class="status"><span class="tick"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg></span>Synced</div><span class="code">.status</span></div>
+          <div class="item"><div class="status"><svg class="i sm" aria-hidden="true"><use href="#i-cloud-off"></use></svg>On this phone</div><span class="code">no account</span></div>
+          <div class="item"><div class="status"><i class="st part" aria-hidden="true"></i>14/18 saved</div><span class="code">.st.part</span></div>
+          <div class="item"><div class="status"><i class="st busy" style="--p:62" aria-hidden="true"></i>Saving 62%</div><span class="code">.st.busy --p</span></div>
+          <div class="item"><div class="status todo">2 edits to sync</div><span class="code">.status.todo</span></div>
+        </div>
+        <div class="spec">
+          <div class="item"><div class="tag"><i class="st full" aria-hidden="true"></i>Saved</div><span class="code">.st.full</span></div>
+          <div class="item"><div class="tag todo"><i class="st none" aria-hidden="true"></i>Not saved</div><span class="code">.tag.todo</span></div>
+          <div class="item"><div class="now">Now · day 2/5</div><span class="code">.now</span></div>
+          <div class="item"><span class="tick" style="font-weight:600"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg>Sent</span><span class="code">.tick</span></div>
+        </div>
+        <div class="spec">
+          <div class="item"><div class="ring" style="--p:62" role="img" aria-label="62%"><div>62%</div></div><span class="code">.ring --p</span></div>
+          <div class="item" style="width:160px"><div class="meter" style="--p:40;width:160px" role="img" aria-label="40%"></div><span class="code">.meter --p</span></div>
+          <div class="item" style="width:220px"><div class="ticks" style="--p:39;width:220px" role="img" aria-label="39%"></div><span class="code">.ticks --p</span></div>
+        </div>
+      </div>
+
+      <div class="sect">
+        <h2 class="sect-title">Controls</h2>
+        <div class="spec">
+          <div class="item"><button class="ib" aria-label="Back"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></button><span class="code">.ib</span></div>
+          <div class="item"><button class="ib accent" aria-label="Add"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></button><span class="code">.ib.accent</span></div>
+          <div class="item"><button class="ib on" aria-label="Want"><svg class="i fill" aria-hidden="true"><use href="#i-star"></use></svg></button><span class="code">.ib.on</span></div>
+          <div class="item"><button class="btn">Recap</button><span class="code">.btn</span></div>
+          <div class="item"><button class="btn accent">Bring 1</button><span class="code">.btn.accent</span></div>
+          <div class="item"><button class="btn ghost"><svg class="i" aria-hidden="true"><use href="#i-map-pin"></use></svg>Pin location</button><span class="code">.btn.ghost</span></div>
+          <div class="item"><button class="btn danger"><svg class="i" aria-hidden="true"><use href="#i-trash-2"></use></svg>Delete trip</button><span class="code">.btn.danger</span></div>
+          <div class="item"><button class="btn danger solid">Delete</button><span class="code">.btn.danger.solid</span></div>
+          <div class="item"><button class="btn accent" disabled="disabled">Create trip</button><span class="code">[disabled]</span></div>
+        </div>
+        <div class="spec">
+          <div class="item"><div class="chips"><button class="chip on">Sector</button><button class="chip">Grade</button></div><span class="code">.chip .chip.on</span></div>
+          <div class="item"><input type="checkbox" class="switch" role="switch" checked="checked" aria-label="Example switch"><span class="code">.switch</span></div>
+          <div class="item" style="width:300px"><div class="seg" role="radiogroup" aria-label="Style" style="width:100%"><label><input type="radio" name="s-{{t.cls}}" checked="checked">Boulder</label><label><input type="radio" name="s-{{t.cls}}">Sport</label><label><input type="radio" name="s-{{t.cls}}">Trad</label></div><span class="code">.seg</span></div>
+        </div>
+        <div class="spec">
+          <div class="item" style="width:300px"><label class="field" style="width:100%"><span class="label">Crag</span><input class="input" value="Fontainebleau"></label><span class="code">.field .input</span></div>
+          <div class="item" style="width:300px"><div class="gpick" style="width:100%" role="radiogroup" aria-label="Grade"><label class="g6"><input type="radio" name="g-{{t.cls}}">6C</label><label class="g7"><input type="radio" name="g-{{t.cls}}" checked="checked">7A</label><label class="g8"><input type="radio" name="g-{{t.cls}}">8A</label><label class="g9"><input type="radio" name="g-{{t.cls}}">9A</label></div><span class="code">.gpick</span></div>
+        </div>
+      </div>
+
+      <div class="sect">
+        <h2 class="sect-title">Lists &amp; cards</h2>
+        <div class="stack" style="width:420px">
+          <div class="row"><div class="grade g7">7A</div><div style="flex:1;min-width:0"><div class="name">La Joker</div><div class="meta"><div class="avs"><div class="av sm p-l">L</div><div class="av sm p-t">T</div></div></div></div><button class="ib on" aria-label="Want"><svg class="i fill" aria-hidden="true"><use href="#i-star"></use></svg></button></div>
+          <div class="row todo"><div class="qty">2/3</div><div class="name">Crash pads</div><button class="btn accent sm">Bring 1</button></div>
+          <div class="row slim"><div class="grade sm g7">7B+</div><div class="name">Carnage</div><div class="meter" style="--p:40;width:72px" role="img" aria-label="40%"></div></div>
+          <span class="code">.row · .row.todo · .row.slim</span>
+        </div>
+        <div class="grid2" style="width:420px">
+          <div class="card tile"><div>Wishlist</div><div class="big">18<span> · 6 unplanned</span></div></div>
+          <div class="card tile todo"><div>Gear</div><div class="big">5/6</div></div>
+        </div>
+        <span class="code">.card.tile · .tile.todo</span>
+      </div>
+
+      <div class="sect">
+        <h2 class="sect-title">Dock</h2>
+        <div class="demo-dock"><nav class="dock" aria-label="Example tabs"><a href="#" aria-current="page">Trip</a><a href="#">Wishlist</a><a href="#">Plan</a><a href="#">Gear</a><a href="#">Log</a></nav></div>
+        <div class="demo-dock"><a class="dock cta" href="#"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></span><span class="label">New trip</span></a></div>
+        <div class="demo-dock"><div class="dock log" role="group" aria-label="Example log"><button>Attempt</button><button class="on" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg>Sent</button><button>Flash</button></div></div>
+        <span class="code">.dock · .dock.cta · .dock.log</span>
+      </div>
+
+      <div class="sect">
+        <h2 class="sect-title">Forms</h2>
+        <div class="spec">
+          <div class="item"><div class="stepper"><button class="ib" aria-label="One less"><svg class="i" aria-hidden="true"><use href="#i-minus"></use></svg></button><output>3</output><button class="ib" aria-label="One more"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></button></div><span class="code">.stepper</span></div>
+          <div class="item" style="width:300px"><label class="row slim" style="width:100%;cursor:pointer"><input type="radio" class="radio" name="r-{{t.cls}}" checked="checked"><span class="name">Sun 18 · Bas Cuvier</span></label><span class="code">.radio in .row</span></div>
+        </div>
+        <div class="item" style="width:420px"><label class="field" style="width:100%"><span class="label">Notes</span><textarea class="input area">Carnage after 15:00, once it's in the shade.</textarea></label><span class="code">.input.area</span></div>
+        <div class="item" style="width:420px"><div class="stack" style="width:100%"><div class="skeleton" style="height:76px"></div><div class="skeleton" style="height:76px;width:70%"></div></div><span class="code">.skeleton</span></div>
+      </div>
+
+      <div class="sect">
+        <h2 class="sect-title">Overlays · .scrim + .bottom-sheet · .dialog · .toast</h2>
+        <div class="bottom-sheet">
+          <div class="grab" aria-hidden="true"></div>
+          <div class="bar"><h3 class="h3">Add gear</h3><button class="ib sm" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button></div>
+          <label class="field"><span class="label">Item</span><input class="input" value="Rope 70 m"></label>
+          <button class="btn accent wide"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg>Add</button>
+        </div>
+        <div class="dialog">
+          <h3 class="h3">Delete Font Easter?</h3>
+          <p class="sub" style="line-height:1.4">The plan, beta and logs go for all 5 climbers.</p>
+          <div class="grid2" style="padding-top:8px"><button class="btn ghost">Cancel</button><button class="btn danger solid">Delete</button></div>
+        </div>
+        <div class="toast"><span class="tick"><svg class="i" aria-hidden="true"><use href="#i-circle-check"></use></svg></span><span style="flex:1">Sent · La Joker</span><button class="btn ghost sm"><svg class="i" aria-hidden="true"><use href="#i-undo-2"></use></svg>Undo</button></div>
+      </div>
+    </section>
+    </sc-for>
+  </div>
+</main>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() {
+    // Font -> V reference. cls = "g" + first digit of the Font grade.
+    const pairs = [['1','VB'],['2','VB'],['3','VB'],['4','V0'],['4+','V0+'],['5','V1'],['5+','V2'],
+      ['6A','V3'],['6A+','V3'],['6B','V4'],['6B+','V4'],['6C','V5'],['6C+','V5'],
+      ['7A','V6'],['7A+','V7'],['7B','V8'],['7B+','V8'],['7C','V9'],['7C+','V10'],
+      ['8A','V11'],['8A+','V12'],['8B','V13'],['8B+','V14'],['8C','V15'],['8C+','V16'],['9A','V17']];
+    const fontToV = pairs.map(([font, v]) => ({ font, v, cls: 'g' + font[0] }));
+    const icons = ["chevron-left", "chevron-right", "x", "ellipsis-vertical", "plus", "minus", "check", "star", "download", "share", "navigation", "pause", "play", "settings", "grip-vertical", "arrow-right", "copy", "trash-2", "log-out", "link", "image", "video", "file-text", "notebook-pen", "refresh-cw", "undo-2", "cloud-off", "wifi", "calendar", "map-pin", "hard-drive", "user-minus", "shield-check", "mail", "book-open", "triangle-alert", "circle-check", "user-round"];
+    return { themes: [ { cls: 'dark', name: 'Dark' }, { cls: 'light', name: 'Sunlight' } ], fontToV, icons };
+  }
+}
+</script>
+</body>
+</html>

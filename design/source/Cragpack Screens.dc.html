@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cragpack Screens</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./cragpack.css">
+<style>
+/* Canvas only: flow layout around the screens. Product styles live in cragpack.css.
+   Each flow row reads left to right; the label on an arrow is what the user taps.
+   A dashed pill is a screen shown in another row.
+   Local first: no account is needed to plan. The account prompt (13) opens only for actions
+   that need other people or the cloud: invite, join, share a link, sync across devices.
+   Screen ids: home0, account, email, home, newtrip, trip, crew, join, offline, wishlist, addobj,
+   boulder, addbeta, viewer, plan, dayedit, gear, addgear, logged, triplog, logbook, settings,
+   recap, share, tripsettings, confirm, member, wishlist0, expired, offlinefail, conflict. */
+body{margin:0;background:#ddd8d0;font-family:'Instrument Sans',system-ui,sans-serif;color:#1c1814}
+.canvas{padding:64px;display:flex;flex-direction:column;gap:72px;width:max-content}
+.canvas-title{margin:0;font:700 40px 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em}
+.flow{display:flex;flex-direction:column;gap:20px}
+.flow-title{margin:0;font:700 24px 'Bricolage Grotesque',sans-serif}
+.steps{display:flex;align-items:center;gap:16px}
+.steps.states{gap:40px}
+.frame{display:flex;flex-direction:column;gap:14px}
+.cap{font:700 13px 'JetBrains Mono',monospace;letter-spacing:.06em;color:#4a4138}
+.go{width:104px;flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:28px;font:600 13px 'JetBrains Mono',monospace;color:#4a4138;text-align:center}
+.go::before{content:"→";font:500 36px/1 'Instrument Sans',sans-serif}
+.ref{flex:none;height:52px;padding:0 20px;margin-top:28px;border-radius:999px;border:2px dashed #4a4138;box-sizing:border-box;display:flex;align-items:center;font:700 13px 'JetBrains Mono',monospace;letter-spacing:.06em;color:#4a4138;text-decoration:none}
+</style>
+</helmet>
+<svg class="sprite" aria-hidden="true">
+<symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"></path></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></symbol>
+<symbol id="i-ellipsis-vertical" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"></path><path d="M12 5v14"></path></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"></path></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"></path></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" x2="12" y1="2" y2="15"></line></symbol>
+<symbol id="i-navigation" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"></rect><rect x="6" y="4" width="4" height="16" rx="1"></rect></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"></polygon></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></symbol>
+<symbol id="i-grip-vertical" viewBox="0 0 24 24"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></symbol>
+<symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></symbol>
+<symbol id="i-log-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></symbol>
+<symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"></path><rect x="2" y="6" width="14" height="12" rx="2"></rect></symbol>
+<symbol id="i-file-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></symbol>
+<symbol id="i-notebook-pen" viewBox="0 0 24 24"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"></path><path d="M2 6h4"></path><path d="M2 10h4"></path><path d="M2 14h4"></path><path d="M2 18h4"></path><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"></path></symbol>
+<symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></symbol>
+<symbol id="i-undo-2" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"></path></symbol>
+<symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="m2 2 20 20"></path><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"></path><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"></path></symbol>
+<symbol id="i-wifi" viewBox="0 0 24 24"><path d="M12 20h.01"></path><path d="M2 8.82a15 15 0 0 1 20 0"></path><path d="M5 12.859a10 10 0 0 1 14 0"></path><path d="M8.5 16.429a5 5 0 0 1 7 0"></path></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></symbol>
+<symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></symbol>
+<symbol id="i-hard-drive" viewBox="0 0 24 24"><line x1="22" x2="2" y1="12" y2="12"></line><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path><line x1="6" x2="6.01" y1="16" y2="16"></line><line x1="10" x2="10.01" y1="16" y2="16"></line></symbol>
+<symbol id="i-user-minus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="22" x2="16" y1="11" y2="11"></line></symbol>
+<symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></symbol>
+<symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></symbol>
+<symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 7v14"></path><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"></path></symbol>
+<symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></symbol>
+<symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></symbol>
+<symbol id="i-user-round" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></symbol>
+</svg>
+<main class="canvas">
+  <h1 class="canvas-title">Cragpack screens</h1>
+
+  <!-- 0 · FIRST LAUNCH: NO ACCOUNT NEEDED -->
+  <section class="flow" aria-label="First launch">
+    <h2 class="flow-title">0 · First launch · no account needed</h2>
+    <div class="steps">
+
+      <div class="frame">
+        <div class="cap">15 TRIPS HOME · FIRST LAUNCH</div>
+        <section class="ct phone {{theme}}" id="home0" data-screen-label="15 Trips home first launch" aria-label="Trips home, no trips">
+          <div class="pad">
+            <div class="bar">
+              <a class="ib" href="#logbook" aria-label="Your logbook"><svg class="i" aria-hidden="true"><use href="#i-user-round"></use></svg></a>
+              <div class="status" role="status"><svg class="i sm" aria-hidden="true"><use href="#i-cloud-off"></use></svg>On this phone</div>
+              <button class="ib" aria-label="More"><svg class="i" aria-hidden="true"><use href="#i-ellipsis-vertical"></use></svg></button>
+            </div>
+            <h1 class="h1">Trips</h1>
+            <div class="card tile todo empty" style="height:320px;margin-top:14px">
+              <h2 class="h3">No trips yet</h2>
+              <a class="btn ghost" href="#account"><svg class="i" aria-hidden="true"><use href="#i-link"></use></svg>Paste invite link</a>
+            </div>
+          </div>
+          <a class="dock cta" href="#newtrip"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></span><span class="label">New trip</span></a>
+        </section>
+      </div>
+
+      <div class="go">New trip</div>
+      <a class="ref" href="#newtrip">09 NEW TRIP</a>
+
+    </div>
+  </section>
+
+  <!-- 1 · START A TRIP -->
+  <section class="flow" aria-label="Start a trip">
+    <h2 class="flow-title">1 · Start a trip</h2>
+    <div class="steps">
+
+      <div class="frame">
+        <div class="cap">01 TRIPS HOME</div>
+        <section class="ct phone {{theme}}" id="home" data-screen-label="01 Trips home" aria-label="Trips home">
+          <div class="pad">
+            <div class="bar">
+              <a class="av lg flat p-l" href="#logbook" aria-label="Your logbook">L</a>
+              <div class="status" role="status"><span class="tick"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg></span>Synced</div>
+              <button class="ib" aria-label="More"><svg class="i" aria-hidden="true"><use href="#i-ellipsis-vertical"></use></svg></button>
+            </div>
+            <h1 class="h1">Trips</h1>
+            <article class="photo pcard" style="margin-top:14px;height:290px">
+              <div class="now" style="position:absolute;left:12px;top:12px">Now · day 2/5</div>
+              <h2 class="h2"><a href="#trip">Font Easter</a></h2>
+              <p>Fontainebleau · 17–21 Apr</p>
+              <div class="bar" style="padding-top:4px">
+                <div class="avs" role="img" aria-label="Léa, Tom, Inès, Max, Sam"><div class="av p-l">L</div><div class="av p-t">T</div><div class="av p-i">I</div><div class="av p-m">M</div><div class="av p-s">S</div></div>
+                <a class="tag" href="#offline"><i class="st part" aria-hidden="true"></i>14/18 saved</a>
+              </div>
+            </article>
+            <article class="photo pcard" style="margin-top:8px;height:150px">
+              <div class="bar" style="align-items:flex-end">
+                <div>
+                  <h2 class="h3"><a href="#trip">Magic Wood</a></h2>
+                  <p>Switzerland · 10–19 Jul</p>
+                </div>
+                <a class="btn" href="#offline"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg>Download</a>
+              </div>
+            </article>
+            <div class="row" style="margin-top:8px;min-height:84px;border-radius:42px">
+              <div class="photo thumb" aria-hidden="true"></div>
+              <div class="name">Albarracín<div class="meta sub">Oct · 31 sends</div></div>
+              <a class="btn" href="#recap">Recap</a>
+            </div>
+          </div>
+          <a class="dock cta" href="#newtrip"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></span><span class="label">New trip</span></a>
+        </section>
+      </div>
+
+      <div class="go">New trip</div>
+
+      <div class="frame">
+        <div class="cap">09 NEW TRIP</div>
+        <section class="ct phone {{theme}}" id="newtrip" data-screen-label="09 New trip" aria-label="New trip">
+          <div class="pad stack" style="gap:14px">
+            <div class="bar">
+              <a class="ib" href="#home" aria-label="Cancel"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></a>
+              <h1 class="title">New trip</h1>
+              <span class="tap-space"></span>
+            </div>
+            <button class="card cover" aria-label="Add cover photo"><span class="btn"><svg class="i" aria-hidden="true"><use href="#i-image"></use></svg>Cover</span></button>
+            <label class="field"><span class="label">Name</span><input class="input" value="Font Easter"></label>
+            <label class="field"><span class="label">Crag</span><input class="input" value="Fontainebleau"></label>
+            <div class="grid2">
+              <label class="field"><span class="label">Start</span><input class="input" value="Sat 17 Apr" readonly="readonly"></label>
+              <label class="field"><span class="label">End</span><input class="input" value="Wed 21 Apr" readonly="readonly"></label>
+            </div>
+          </div>
+          <a class="dock cta" href="#trip"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg></span><span class="label">Create trip</span></a>
+        </section>
+      </div>
+
+      <div class="go">Create trip</div>
+
+      <div class="frame">
+        <div class="cap">02 TRIP OVERVIEW</div>
+        <section class="ct phone {{theme}}" id="trip" data-screen-label="02 Trip overview" aria-label="Trip overview">
+          <header class="photo hero" style="height:400px">
+            <div class="bar">
+              <a class="ib" href="#home" aria-label="Back to trips"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <a class="status" href="#offline"><i class="st part" aria-hidden="true"></i>14/18 saved</a>
+              <a class="ib" href="#tripsettings" aria-label="Trip settings"><svg class="i" aria-hidden="true"><use href="#i-ellipsis-vertical"></use></svg></a>
+            </div>
+            <div class="spacer"></div>
+            <div class="now">Day 2/5</div>
+            <h1 class="title-xl" style="padding-top:12px">Font Easter</h1>
+            <p style="padding-top:6px">Fontainebleau · 17–21 Apr</p>
+            <div class="avs" style="padding-top:16px">
+              <div class="av lg p-l">L</div><div class="av lg p-t">T</div><div class="av lg p-i">I</div><div class="av lg p-m">M</div><div class="av lg p-s">S</div>
+              <a class="ib on" href="#crew" style="margin-left:8px" aria-label="Invite climbers"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></a>
+            </div>
+          </header>
+          <div class="pad stack" style="padding-top:8px">
+            <a class="card" href="#triplog" style="padding:14px 20px 18px;display:flex;flex-direction:column;gap:10px">
+              <div class="big xl">7<span> /18 sent</span></div>
+              <div class="ticks" style="--p:39" role="img" aria-label="7 of 18 objectives sent"></div>
+            </a>
+            <div class="grid2">
+              <a class="card tile" href="#plan"><div>Today</div><div class="big" style="font-size:22px">Bas Cuvier</div></a>
+              <a class="card tile" href="#wishlist"><div>Wishlist</div><div class="big">18<span> · 6 unplanned</span></div></a>
+              <a class="card tile todo" href="#gear"><div>Gear</div><div class="big">5/6<span style="color:inherit"> · 1 missing</span></div></a>
+              <div class="card tile">
+                <div>Beta</div><div class="big">14/18<span> saved</span></div>
+                <a class="ib accent sm" href="#offline" aria-label="Download the 4 remaining"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg></a>
+              </div>
+            </div>
+          </div>
+          <nav class="dock" aria-label="Trip">
+            <a href="#trip" aria-current="page">Trip</a><a href="#wishlist">Wishlist</a><a href="#plan">Plan</a><a href="#gear">Gear</a><a href="#triplog">Log</a>
+          </nav>
+        </section>
+      </div>
+
+      <div class="go">+ Invite</div>
+
+      <div class="frame">
+        <div class="cap">07 CREW / INVITE</div>
+        <section class="ct phone {{theme}}" id="crew" data-screen-label="07 Crew invite" aria-label="Crew and invite">
+          <div class="pad">
+            <div class="bar">
+              <a class="ib" href="#trip" aria-label="Back to trip"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <div class="status" role="status"><span class="tick"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg></span>Synced</div>
+              <a class="ib" href="#tripsettings" aria-label="Trip settings"><svg class="i" aria-hidden="true"><use href="#i-ellipsis-vertical"></use></svg></a>
+            </div>
+            <h1 class="h1">Crew</h1>
+            <div class="bar" style="padding-top:14px">
+              <div class="card linkbox">
+                <div class="mono" aria-label="Invite link">cragpack.app/j/7k2f</div>
+                <button class="btn accent sm"><svg class="i" aria-hidden="true"><use href="#i-copy"></use></svg>Copy</button>
+              </div>
+              <button class="ib" aria-label="Share invite link"><svg class="i" aria-hidden="true"><use href="#i-share"></use></svg></button>
+            </div>
+            <div class="stack" style="padding-top:12px">
+              <div class="row"><div class="av lg flat p-l">L</div><div class="name">Léa <span class="sub">you</span></div><div class="tag"><i class="st full" aria-hidden="true"></i>Saved</div></div>
+              <a class="row" href="#member"><div class="av lg flat p-t">T</div><div class="name">Tom</div><div class="tag"><i class="st full" aria-hidden="true"></i>Saved</div></a>
+              <a class="row" href="#member"><div class="av lg flat p-i">I</div><div class="name">Inès</div><div class="tag"><i class="st busy" style="--p:62" aria-hidden="true"></i>Saving 62%</div></a>
+              <a class="row" href="#member"><div class="av lg flat p-m">M</div><div class="name">Max</div><div class="tag"><i class="st full" aria-hidden="true"></i>Saved</div></a>
+              <a class="row" href="#member"><div class="av lg flat p-s">S</div><div class="name">Sam</div><div class="tag todo"><i class="st none" aria-hidden="true"></i>Not saved</div></a>
+            </div>
+          </div>
+          <nav class="dock" aria-label="Trip">
+            <a href="#trip" aria-current="page">Trip</a><a href="#wishlist">Wishlist</a><a href="#plan">Plan</a><a href="#gear">Gear</a><a href="#triplog">Log</a>
+          </nav>
+        </section>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 2 · ACCOUNT ONLY WHEN SHARING -->
+  <section class="flow" aria-label="Account only when sharing">
+    <h2 class="flow-title">2 · Account only when sharing</h2>
+    <div class="steps">
+
+      <a class="ref" href="#trip">02 TRIP OVERVIEW</a>
+      <div class="go">+ Invite, no account yet</div>
+
+      <div class="frame">
+        <div class="cap">13 ACCOUNT PROMPT</div>
+        <section class="ct phone {{theme}}" id="account" data-screen-label="13 Account prompt" aria-label="Create an account to invite your crew">
+          <header class="photo hero" style="height:400px" aria-hidden="true">
+            <div class="spacer"></div>
+            <p class="title-xl">Font Easter</p>
+          </header>
+          <div class="scrim"></div>
+          <div class="bottom-sheet" role="dialog" aria-label="Create an account">
+            <div class="grab" aria-hidden="true"></div>
+            <div class="bar" style="align-items:flex-start">
+              <h2 class="h3">Create an account to invite your crew</h2>
+              <a class="ib sm" href="#trip" aria-label="Not now"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></a>
+            </div>
+            <p class="sub">Your trips on this phone come with you.</p>
+            <!-- Build with the official Sign in with Apple / Google buttons (brand guidelines). -->
+            <a class="btn wide" href="#crew">Continue with Apple</a>
+            <a class="btn wide" href="#crew">Continue with Google</a>
+            <a class="btn wide ghost" href="#email"><svg class="i" aria-hidden="true"><use href="#i-mail"></use></svg>Continue with email</a>
+            <p class="sub" style="font-size:13px;text-align:center">By continuing you accept the <a href="#" style="text-decoration:underline">Terms</a> and <a href="#" style="text-decoration:underline">Privacy policy</a>.</p>
+          </div>
+        </section>
+      </div>
+
+      <div class="go">Continue with email</div>
+
+      <div class="frame">
+        <div class="cap">14 CREATE ACCOUNT</div>
+        <section class="ct phone {{theme}}" id="email" data-screen-label="14 Create account" aria-label="Create account">
+          <div class="pad stack" style="gap:14px">
+            <div class="bar">
+              <a class="ib" href="#account" aria-label="Back"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <h1 class="title">Create account</h1>
+              <span class="tap-space"></span>
+            </div>
+            <label class="field"><span class="label">Name</span><input class="input" value="Léa" autocomplete="given-name"></label>
+            <label class="field"><span class="label">Email</span><input class="input" type="email" value="lea@example.com" autocomplete="email"></label>
+            <label class="field"><span class="label">Password</span><input class="input" type="password" value="sandstone" autocomplete="new-password"></label>
+            <a class="btn ghost" href="#account" style="align-self:flex-start">I have an account</a>
+          </div>
+          <a class="dock cta" href="#crew"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span><span class="label">Create account</span></a>
+        </section>
+      </div>
+
+      <div class="go">Create account</div>
+      <a class="ref" href="#crew">07 CREW / INVITE</a>
+
+    </div>
+  </section>
+
+  <!-- 2 · JOIN WITH A LINK -->
+  <section class="flow" aria-label="Join with a link">
+    <h2 class="flow-title">3 · Join with a link</h2>
+    <div class="steps">
+
+      <div class="frame">
+        <div class="cap">10 JOIN</div>
+        <section class="ct phone {{theme}}" id="join" data-screen-label="10 Join" aria-label="Join trip">
+          <header class="photo hero" style="height:500px">
+            <div class="bar"><span class="brand">Cragpack</span></div>
+            <div class="spacer"></div>
+            <div class="bar" style="justify-content:flex-start;gap:10px">
+              <div class="av md p-l" aria-hidden="true">L</div>
+              <p style="font-weight:600">Léa invited you</p>
+            </div>
+            <h1 class="title-xl" style="padding-top:16px">Font Easter</h1>
+            <p style="padding-top:6px">Fontainebleau · 17–21 Apr</p>
+            <div class="avs" style="padding-top:16px" role="img" aria-label="Léa, Tom, Max, Sam">
+              <div class="av lg p-l">L</div><div class="av lg p-t">T</div><div class="av lg p-m">M</div><div class="av lg p-s">S</div>
+            </div>
+          </header>
+          <div class="pad stack" style="padding-top:20px">
+            <label class="row slim" style="cursor:pointer"><span class="name">Save offline <span class="sub">412 MB</span></span><input type="checkbox" class="switch" role="switch" checked="checked"></label>
+          </div>
+          <a class="dock cta" href="#account"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span><span class="label">Join trip</span></a>
+        </section>
+      </div>
+
+      <div class="go">Join trip</div>
+      <a class="ref" href="#account">13 ACCOUNT PROMPT</a>
+      <div class="go">Signed in</div>
+
+      <div class="frame">
+        <div class="cap">11 SAVING OFFLINE</div>
+        <section class="ct phone {{theme}}" id="offline" data-screen-label="11 Saving offline" aria-label="Saving for offline">
+          <div class="pad">
+            <div class="bar">
+              <a class="ib" href="#trip" aria-label="Back to trip"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <div class="status" role="status"><i class="st busy" style="--p:62" aria-hidden="true"></i>Saving 62%</div>
+              <button class="ib" aria-label="More"><svg class="i" aria-hidden="true"><use href="#i-ellipsis-vertical"></use></svg></button>
+            </div>
+            <h1 class="h1">Offline</h1>
+            <div class="bar" style="justify-content:flex-start;gap:24px;padding:20px 4px">
+              <div class="ring" style="--p:62" role="progressbar" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100" aria-label="Saving for offline"><div>62%</div></div>
+              <div class="stack" style="gap:10px">
+                <div class="big">255<span> /412 MB</span></div>
+                <div class="big">11<span> /18 objectives</span></div>
+              </div>
+            </div>
+            <div class="stack">
+              <label class="row slim" style="cursor:pointer"><span class="name">Wi-Fi only</span><input type="checkbox" class="switch" role="switch" checked="checked"></label>
+              <div class="row slim"><div class="grade sm g7">7B+</div><div class="name">Carnage</div><div class="meter" style="--p:40;width:72px" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100" aria-label="Carnage"></div></div>
+              <div class="row slim"><div class="grade sm g6">6C</div><div class="name">Duroxmanie</div><span class="sub" style="font-size:13px;font-weight:600">Queued</span></div>
+              <div class="row slim"><div class="grade sm g7">7A</div><div class="name">Le Toit du Cul de Chien</div><span class="sub" style="font-size:13px;font-weight:600">Queued</span></div>
+              <div class="row slim"><div class="grade sm g7">7A</div><div class="name">La Joker</div><div class="tag"><i class="st full" aria-hidden="true"></i>Saved</div></div>
+            </div>
+          </div>
+          <button class="dock cta"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-pause"></use></svg></span><span class="label">Pause</span></button>
+        </section>
+      </div>
+
+      <div class="go">Done</div>
+      <a class="ref" href="#trip">02 TRIP OVERVIEW</a>
+
+    </div>
+  </section>
+
+  <!-- 3 · BUILD THE WISHLIST -->
+  <section class="flow" aria-label="Build the wishlist">
+    <h2 class="flow-title">4 · Build the wishlist</h2>
+    <div class="steps">
+
+      <a class="ref" href="#trip">02 TRIP OVERVIEW</a>
+      <div class="go">Wishlist</div>
+
+      <div class="frame">
+        <div class="cap">03 WISHLIST</div>
+        <section class="ct phone {{theme}}" id="wishlist" data-screen-label="03 Wishlist" aria-label="Wishlist">
+          <div class="pad">
+            <div class="bar">
+              <a class="ib" href="#trip" aria-label="Back to trip"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <a class="status" href="#offline"><i class="st part" aria-hidden="true"></i>14/18 saved</a>
+              <a class="ib accent" href="#addobj" aria-label="Add objective"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></a>
+            </div>
+            <h1 class="h1">Wishlist</h1>
+            <div class="chips filters">
+              <button class="chip on" aria-pressed="true">Sector</button>
+              <button class="chip" aria-pressed="false">Grade</button>
+              <button class="chip" aria-pressed="false">Who</button>
+            </div>
+            <div class="stack">
+              <h2 class="group" style="padding-top:0">Bas Cuvier</h2>
+              <div class="row">
+                <div class="grade g7">7B+</div>
+                <div style="flex:1;min-width:0"><div class="name"><a href="#boulder">Carnage</a></div><div class="meta"><div class="avs"><div class="av sm p-l">L</div><div class="av sm p-m">M</div></div></div></div>
+                <button class="ib on" aria-pressed="true" aria-label="I want to try Carnage"><svg class="i fill" aria-hidden="true"><use href="#i-star"></use></svg></button>
+              </div>
+              <div class="row">
+                <div class="grade g7">7A</div>
+                <div style="flex:1;min-width:0"><div class="name"><a href="#boulder">La Joker</a></div><div class="meta"><div class="avs"><div class="av sm p-l">L</div><div class="av sm p-t">T</div><div class="av sm p-s">S</div></div></div></div>
+                <button class="ib on" aria-pressed="true" aria-label="I want to try La Joker"><svg class="i fill" aria-hidden="true"><use href="#i-star"></use></svg></button>
+              </div>
+              <div class="row">
+                <div class="grade g6">6C</div>
+                <div style="flex:1;min-width:0"><div class="name"><a href="#boulder">Duroxmanie</a></div><div class="meta"><div class="avs"><div class="av sm p-i">I</div></div></div></div>
+                <button class="ib" aria-pressed="false" aria-label="I want to try Duroxmanie"><svg class="i" aria-hidden="true"><use href="#i-star"></use></svg></button>
+              </div>
+              <div class="row">
+                <div class="grade g6">6A</div>
+                <div style="flex:1;min-width:0"><div class="name"><a href="#boulder">La Marie-Rose</a></div><div class="meta"><div class="avs"><div class="av sm p-l">L</div><div class="av sm p-t">T</div></div><span class="tick"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg>Sent</span></div></div>
+                <button class="ib on" aria-pressed="true" aria-label="I want to try La Marie-Rose"><svg class="i fill" aria-hidden="true"><use href="#i-star"></use></svg></button>
+              </div>
+              <h2 class="group">Cul de Chien</h2>
+              <div class="row">
+                <div class="grade g7">7A</div>
+                <div style="flex:1;min-width:0"><div class="name"><a href="#boulder">Le Toit du Cul de Chien</a></div><div class="meta"><div class="avs"><div class="av sm p-t">T</div><div class="av sm p-i">I</div></div><i class="st none" aria-hidden="true"></i>Not saved</div></div>
+                <button class="ib" aria-pressed="false" aria-label="I want to try Le Toit du Cul de Chien"><svg class="i" aria-hidden="true"><use href="#i-star"></use></svg></button>
+              </div>
+            </div>
+          </div>
+          <nav class="dock" aria-label="Trip">
+            <a href="#trip">Trip</a><a href="#wishlist" aria-current="page">Wishlist</a><a href="#plan">Plan</a><a href="#gear">Gear</a><a href="#triplog">Log</a>
+          </nav>
+        </section>
+      </div>
+
+      <div class="go">+</div>
+
+      <div class="frame">
+        <div class="cap">12 ADD OBJECTIVE</div>
+        <section class="ct phone {{theme}}" id="addobj" data-screen-label="12 Add objective" aria-label="Add objective">
+          <div class="pad stack" style="gap:14px">
+            <div class="bar">
+              <a class="ib" href="#wishlist" aria-label="Cancel"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></a>
+              <h1 class="title">Add objective</h1>
+              <span class="tap-space"></span>
+            </div>
+            <label class="field"><span class="label">Name</span><input class="input" value="La Joker"></label>
+            <div class="seg" role="radiogroup" aria-label="Style">
+              <label><input type="radio" name="style" checked="checked">Boulder</label>
+              <label><input type="radio" name="style">Sport</label>
+              <label><input type="radio" name="style">Trad</label>
+            </div>
+            <div class="field" role="radiogroup" aria-label="Grade">
+              <span class="label" aria-hidden="true">Grade</span>
+              <div class="gpick">
+                <label class="g5"><input type="radio" name="grade">5+</label>
+                <label class="g6"><input type="radio" name="grade">6A</label>
+                <label class="g6"><input type="radio" name="grade">6B</label>
+                <label class="g6"><input type="radio" name="grade">6C</label>
+                <label class="g7"><input type="radio" name="grade" checked="checked">7A</label>
+                <label class="g7"><input type="radio" name="grade">7A+</label>
+                <label class="g7"><input type="radio" name="grade">7B</label>
+                <label class="g7"><input type="radio" name="grade">7B+</label>
+              </div>
+            </div>
+            <div class="field" role="radiogroup" aria-label="Sector">
+              <span class="label" aria-hidden="true">Sector</span>
+              <div class="chips">
+                <label class="chip"><input type="radio" name="sector" checked="checked">Bas Cuvier</label>
+                <label class="chip"><input type="radio" name="sector">Cul de Chien</label>
+                <button class="chip" aria-label="New sector"><svg class="i sm" aria-hidden="true"><use href="#i-plus"></use></svg></button>
+              </div>
+            </div>
+            <button class="btn ghost" style="align-self:flex-start"><svg class="i" aria-hidden="true"><use href="#i-map-pin"></use></svg>Pin location</button>
+          </div>
+          <a class="dock cta" href="#boulder"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></span><span class="label">Add to wishlist</span></a>
+        </section>
+      </div>
+
+      <div class="go">Add to wishlist</div>
+
+      <div class="frame">
+        <div class="cap">05 BOULDER / ROUTE DETAIL</div>
+        <section class="ct phone {{theme}}" id="boulder" data-screen-label="05 Boulder detail" aria-label="Boulder detail">
+          <header class="photo hero" style="height:372px">
+            <div class="bar">
+              <a class="ib" href="#wishlist" aria-label="Back to wishlist"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <div class="status" role="status"><i class="st full" aria-hidden="true"></i>Saved · 86 MB</div>
+              <button class="ib" aria-label="More"><svg class="i" aria-hidden="true"><use href="#i-ellipsis-vertical"></use></svg></button>
+            </div>
+            <div class="spacer"></div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <div class="grade xl g7">7A</div>
+              <h1 class="title-xl" style="font-size:38px">La Joker</h1>
+            </div>
+            <button class="chip" style="align-self:flex-start;margin-top:12px;background:var(--surface2)" aria-label="Navigate to Bas Cuvier"><svg class="i sm" aria-hidden="true"><use href="#i-navigation"></use></svg>Bas Cuvier</button>
+          </header>
+          <div class="pad stack" style="padding-top:8px">
+            <div style="display:flex;gap:8px">
+              <a class="card media add" href="#addbeta" aria-label="Add beta"><svg class="i lg" aria-hidden="true"><use href="#i-plus"></use></svg></a>
+              <a class="photo media" href="#viewer" aria-label="YouTube video, 1 minute 15, online only" style="gap:6px"><i class="st none" aria-hidden="true"></i>1:15</a>
+              <button class="photo media" aria-label="Beta video, 42 seconds, saved">0:42</button>
+              <button class="photo media" aria-label="Topo scan, saved">Topo</button>
+            </div>
+            <div class="card" style="padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+              <div class="av p-t" role="img" aria-label="Tom">T</div>
+              <p style="line-height:1.4">Left heel hook, then cross to the sloper. Two pads under the lip.</p>
+            </div>
+            <div class="grid2">
+              <div class="card tile" style="height:96px">
+                <div>Want</div>
+                <div class="avs" role="img" aria-label="Léa, Tom, Sam"><div class="av p-l">L</div><div class="av p-t">T</div><div class="av p-s">S</div></div>
+              </div>
+              <div class="card tile" style="height:96px">
+                <div>Sent</div>
+                <div class="bar" style="justify-content:flex-start;gap:10px"><div class="av p-s" style="border-color:var(--accent)" role="img" aria-label="Sam">S</div><span class="tick" style="font-size:14px;font-weight:600"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg>Flash</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="dock log" role="group" aria-label="Log La Joker">
+            <button>Attempt</button><a href="#logged"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg>Sent</a><button>Flash</button>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 4 · ADD BETA -->
+  <section class="flow" aria-label="Add beta">
+    <h2 class="flow-title">5 · Add beta</h2>
+    <div class="steps">
+
+      <a class="ref" href="#boulder">05 BOULDER / ROUTE DETAIL</a>
+      <div class="go">+</div>
+
+      <div class="frame">
+        <div class="cap">20 ADD BETA</div>
+        <section class="ct phone {{theme}}" id="addbeta" data-screen-label="20 Add beta" aria-label="Add beta">
+          <header class="photo hero" style="height:300px">
+            <div class="spacer"></div>
+            <div style="display:flex;align-items:center;gap:14px"><div class="grade xl g7">7A</div><p class="title-xl" style="font-size:38px">La Joker</p></div>
+          </header>
+          <div class="scrim"></div>
+          <div class="bottom-sheet" role="dialog" aria-label="Add beta">
+            <div class="grab" aria-hidden="true"></div>
+            <div class="bar">
+              <h2 class="h3">Add beta</h2>
+              <a class="ib sm" href="#boulder" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></a>
+            </div>
+            <label class="field"><span class="label">YouTube link · plays online only</span>
+              <span class="card linkbox"><input class="mono" style="background:none;border:0;outline:none" value="youtu.be/9xQ2…" aria-label="YouTube link"><span class="btn accent sm">Add</span></span>
+            </label>
+            <div class="grid4">
+              <button class="card opt"><svg class="i" aria-hidden="true"><use href="#i-video"></use></svg>Video</button>
+              <button class="card opt"><svg class="i" aria-hidden="true"><use href="#i-image"></use></svg>Photo</button>
+              <button class="card opt"><svg class="i" aria-hidden="true"><use href="#i-file-text"></use></svg>Topo</button>
+              <button class="card opt"><svg class="i" aria-hidden="true"><use href="#i-notebook-pen"></use></svg>Note</button>
+            </div>
+            <div class="row slim">
+              <div class="photo thumb" style="width:44px;height:44px" aria-hidden="true"></div>
+              <div class="name">IMG_0412.mov</div>
+              <div class="tag todo"><svg class="i sm" aria-hidden="true"><use href="#i-cloud-off"></use></svg>Waits for Wi-Fi</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="go">Tap a video</div>
+
+      <div class="frame">
+        <div class="cap">21 MEDIA VIEWER</div>
+        <!-- The media viewer stays dark in both themes, like photo surfaces. -->
+        <section class="ct phone" id="viewer" data-screen-label="21 Media viewer" aria-label="Beta video">
+          <div class="photo" style="position:absolute;inset:0"></div>
+          <div class="pad" style="position:relative">
+            <div class="bar">
+              <a class="ib" href="#boulder" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></a>
+              <div class="status"><i class="st none" aria-hidden="true"></i>YouTube · online only</div>
+              <span class="mono" style="width:52px;text-align:center">3/3</span>
+            </div>
+          </div>
+          <button class="ib xl accent" style="position:absolute;left:157px;top:384px" aria-label="Play"><svg class="i lg" aria-hidden="true"><use href="#i-play"></use></svg></button>
+          <div class="player">
+            <div class="bar" style="justify-content:flex-start;gap:10px"><div class="av p-t" aria-hidden="true">T</div><span style="font-weight:600">Tom</span></div>
+            <div class="meter" style="--p:35;width:100%" role="slider" aria-label="Position" aria-valuenow="26" aria-valuemin="0" aria-valuemax="75"></div>
+            <div class="bar mono"><span>0:26</span><span>1:15</span></div>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 5 · AT THE CRAG -->
+  <section class="flow" aria-label="At the crag">
+    <h2 class="flow-title">6 · At the crag</h2>
+    <div class="steps">
+
+      <a class="ref" href="#trip">02 TRIP OVERVIEW</a>
+      <div class="go">Plan</div>
+
+      <div class="frame">
+        <div class="cap">04 DAY PLANNER</div>
+        <section class="ct phone {{theme}}" id="plan" data-screen-label="04 Day planner" aria-label="Day planner">
+          <div class="pad">
+            <div class="bar">
+              <a class="ib" href="#trip" aria-label="Back to trip"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <div class="status todo" role="status">2 edits to sync</div>
+              <a class="ib" href="#dayedit" aria-label="Edit Sun 18"><svg class="i" aria-hidden="true"><use href="#i-notebook-pen"></use></svg></a>
+            </div>
+            <h1 class="h1">Plan</h1>
+            <div class="days">
+              <button class="day" aria-pressed="false"><span>Sat 17</span>Isatis</button>
+              <button class="day on" aria-pressed="true"><span>Sun 18</span>Cuvier</button>
+              <button class="day" aria-pressed="false"><span>Mon 19</span>Apremont</button>
+              <button class="day" aria-pressed="false"><span>Tue 20</span>Rest</button>
+              <button class="day" aria-pressed="false"><span>Wed 21</span>Éléphant</button>
+            </div>
+            <article class="photo pcard" style="margin-top:12px;height:120px">
+              <h2 class="h3">Bas Cuvier</h2>
+              <p>5 min approach · dry from 11:00</p>
+            </article>
+            <div class="stack" style="padding-top:12px">
+              <a class="row slim" href="#boulder"><div class="grade sm g6">6A</div><div class="name">La Marie-Rose</div><span class="grip"><svg class="i" aria-hidden="true"><use href="#i-grip-vertical"></use></svg></span></a>
+              <div class="drop" aria-label="Drop zone"></div>
+              <a class="row slim" href="#boulder"><div class="grade sm g7">7A</div><div class="name">La Joker</div><span class="grip"><svg class="i" aria-hidden="true"><use href="#i-grip-vertical"></use></svg></span></a>
+              <a class="row slim" href="#boulder"><div class="grade sm g7">7B+</div><div class="name">Carnage</div><span class="grip"><svg class="i" aria-hidden="true"><use href="#i-grip-vertical"></use></svg></span></a>
+            </div>
+          </div>
+          <div class="row slim drag"><div class="grade sm g6">6C</div><div class="name">Duroxmanie</div></div>
+          <div class="tray">
+            <div style="font-size:14px;font-weight:600;padding:0 6px 0 4px;flex:none">6 unplanned</div>
+            <div class="pick" style="opacity:.4;padding-right:16px" aria-hidden="true"><span class="grade xs g6">6C</span>Duroxmanie</div>
+            <button class="pick" aria-label="Add L'Hélicoptère to Sun 18"><span class="grade xs g7">7A</span>L'Hélicoptère<span class="ico"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></span></button>
+          </div>
+          <nav class="dock" aria-label="Trip">
+            <a href="#trip">Trip</a><a href="#wishlist">Wishlist</a><a href="#plan" aria-current="page">Plan</a><a href="#gear">Gear</a><a href="#triplog">Log</a>
+          </nav>
+        </section>
+      </div>
+
+      <div class="go">Edit day</div>
+
+      <div class="frame">
+        <div class="cap">22 EDIT DAY</div>
+        <section class="ct phone {{theme}}" id="dayedit" data-screen-label="22 Edit day" aria-label="Edit day">
+          <div class="pad stack" style="gap:14px">
+            <div class="bar">
+              <a class="ib" href="#plan" aria-label="Cancel"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></a>
+              <h1 class="title">Sun 18 Apr</h1>
+              <span class="tap-space"></span>
+            </div>
+            <div class="field" role="radiogroup" aria-label="Sector">
+              <span class="label" aria-hidden="true">Sector</span>
+              <div class="chips" style="flex-wrap:wrap">
+                <label class="chip"><input type="radio" name="daysector" checked="checked">Bas Cuvier</label>
+                <label class="chip"><input type="radio" name="daysector">Isatis</label>
+                <label class="chip"><input type="radio" name="daysector">Apremont</label>
+                <button class="chip" aria-label="New sector"><svg class="i sm" aria-hidden="true"><use href="#i-plus"></use></svg></button>
+              </div>
+            </div>
+            <label class="row slim" style="cursor:pointer"><span class="name">Rest day</span><input type="checkbox" class="switch" role="switch"></label>
+            <label class="field"><span class="label">Notes</span><textarea class="input area">Warm up on the circuit. Carnage after 15:00, once it's in the shade.</textarea></label>
+          </div>
+          <a class="dock cta" href="#plan"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg></span><span class="label">Save</span></a>
+        </section>
+      </div>
+
+    </div>
+    <div class="steps">
+
+      <a class="ref" href="#trip">02 TRIP OVERVIEW</a>
+      <div class="go">Gear</div>
+
+      <div class="frame">
+        <div class="cap">06 GEAR BOARD</div>
+        <section class="ct phone {{theme}}" id="gear" data-screen-label="06 Gear board" aria-label="Gear board">
+          <div class="pad">
+            <div class="bar">
+              <a class="ib" href="#trip" aria-label="Back to trip"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <div class="status" role="status"><span class="tick"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg></span>Synced</div>
+              <a class="ib accent" href="#addgear" aria-label="Add gear"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></a>
+            </div>
+            <h1 class="h1">Gear</h1>
+            <div class="chips filters">
+              <button class="chip on" aria-pressed="true">Whole trip</button>
+              <button class="chip" aria-pressed="false">Sun 18</button>
+              <button class="chip" aria-pressed="false">Wed 21</button>
+            </div>
+            <div class="stack">
+              <div class="row todo">
+                <div class="qty">2/3</div>
+                <div class="name">Crash pads</div>
+                <div class="avs" role="img" aria-label="Léa, Tom"><div class="av p-l">L</div><div class="av p-t">T</div></div>
+                <button class="btn accent sm">Bring 1</button>
+              </div>
+              <div class="row"><div class="qty">4/4</div><div class="name">Brushes</div><div class="avs" role="img" aria-label="Inès, Max"><div class="av p-i">I</div><div class="av p-m">M</div></div></div>
+              <div class="row"><div class="qty">1/1</div><div class="name">Chalk bucket</div><div class="avs" role="img" aria-label="Sam"><div class="av p-s">S</div></div></div>
+              <div class="row"><div class="qty">2/2</div><div class="name">Skin kit &amp; tape</div><div class="avs" role="img" aria-label="Léa, Inès"><div class="av p-l">L</div><div class="av p-i">I</div></div></div>
+              <div class="row"><div class="qty">1/1</div><div class="name">First-aid kit</div><div class="avs" role="img" aria-label="Max"><div class="av p-m">M</div></div></div>
+              <div class="row"><div class="qty">1/1</div><div class="name">Guidebook</div><div class="avs" role="img" aria-label="Tom"><div class="av p-t">T</div></div></div>
+            </div>
+          </div>
+          <nav class="dock" aria-label="Trip">
+            <a href="#trip">Trip</a><a href="#wishlist">Wishlist</a><a href="#plan">Plan</a><a href="#gear" aria-current="page">Gear</a><a href="#triplog">Log</a>
+          </nav>
+        </section>
+      </div>
+
+      <div class="go">+</div>
+
+      <div class="frame">
+        <div class="cap">23 ADD GEAR</div>
+        <section class="ct phone {{theme}}" id="addgear" data-screen-label="23 Add gear" aria-label="Add gear">
+          <div class="pad" aria-hidden="true">
+            <div class="bar"><span class="ib"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></span><span class="tap-space"></span></div>
+            <p class="h1">Gear</p>
+          </div>
+          <div class="scrim"></div>
+          <div class="bottom-sheet" role="dialog" aria-label="Add gear">
+            <div class="grab" aria-hidden="true"></div>
+            <div class="bar">
+              <h2 class="h3">Add gear</h2>
+              <a class="ib sm" href="#gear" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></a>
+            </div>
+            <label class="field"><span class="label">Item</span><input class="input" value="Rope 70 m"></label>
+            <div class="row slim" style="padding-right:6px">
+              <span class="name">Needed</span>
+              <div class="stepper"><button class="ib" aria-label="One less"><svg class="i" aria-hidden="true"><use href="#i-minus"></use></svg></button><output>1</output><button class="ib" aria-label="One more"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></button></div>
+            </div>
+            <div class="chips" role="radiogroup" aria-label="For">
+              <label class="chip"><input type="radio" name="gearfor" checked="checked">Whole trip</label>
+              <label class="chip"><input type="radio" name="gearfor">Sun 18</label>
+              <label class="chip"><input type="radio" name="gearfor">Wed 21</label>
+            </div>
+            <label class="row slim" style="cursor:pointer"><span class="name">I'll bring it</span><input type="checkbox" class="switch" role="switch" checked="checked"></label>
+            <a class="btn accent wide" href="#gear"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg>Add</a>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 6 · LOG SENDS -->
+  <section class="flow" aria-label="Log sends">
+    <h2 class="flow-title">7 · Log sends</h2>
+    <div class="steps">
+
+      <a class="ref" href="#boulder">05 BOULDER / ROUTE DETAIL</a>
+      <div class="go">Sent</div>
+
+      <div class="frame">
+        <div class="cap">24 LOGGED</div>
+        <section class="ct phone {{theme}}" id="logged" data-screen-label="24 Logged" aria-label="Send logged">
+          <header class="photo hero" style="height:372px">
+            <div class="bar">
+              <a class="ib" href="#wishlist" aria-label="Back to wishlist"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <div class="status todo" role="status">1 edit to sync</div>
+              <button class="ib" aria-label="More"><svg class="i" aria-hidden="true"><use href="#i-ellipsis-vertical"></use></svg></button>
+            </div>
+            <div class="spacer"></div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <div class="grade xl g7">7A</div>
+              <h1 class="title-xl" style="font-size:38px">La Joker</h1>
+            </div>
+            <button class="chip" style="align-self:flex-start;margin-top:12px;background:var(--surface2)" aria-label="Navigate to Bas Cuvier"><svg class="i sm" aria-hidden="true"><use href="#i-navigation"></use></svg>Bas Cuvier</button>
+          </header>
+          <div class="pad stack" style="padding-top:8px">
+            <div style="display:flex;gap:8px">
+              <a class="card media add" href="#addbeta" aria-label="Add beta"><svg class="i lg" aria-hidden="true"><use href="#i-plus"></use></svg></a>
+              <a class="photo media" href="#viewer" aria-label="YouTube video, online only" style="gap:6px"><i class="st none" aria-hidden="true"></i>1:15</a>
+              <button class="photo media" aria-label="Beta video, 42 seconds, saved">0:42</button>
+              <button class="photo media" aria-label="Topo scan, saved">Topo</button>
+            </div>
+            <div class="grid2">
+              <div class="card tile" style="height:96px">
+                <div>Want</div>
+                <div class="avs" role="img" aria-label="Tom"><div class="av p-t">T</div></div>
+              </div>
+              <div class="card tile" style="height:96px">
+                <div>Sent</div>
+                <div class="avs" role="img" aria-label="Sam, Léa"><div class="av p-s" style="border-color:var(--accent)">S</div><div class="av p-l" style="border-color:var(--accent)">L</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="toast" role="status">
+            <span class="tick"><svg class="i" aria-hidden="true"><use href="#i-circle-check"></use></svg></span>
+            <span style="flex:1">Sent · La Joker</span>
+            <a class="btn ghost sm" href="#boulder"><svg class="i" aria-hidden="true"><use href="#i-undo-2"></use></svg>Undo</a>
+          </div>
+          <div class="dock log" role="group" aria-label="Log La Joker">
+            <button>Attempt</button><button class="on" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg>Sent</button><button>Flash</button>
+          </div>
+        </section>
+      </div>
+
+    </div>
+    <div class="steps">
+
+      <a class="ref" href="#trip">02 TRIP OVERVIEW</a>
+      <div class="go">Log tab</div>
+
+      <div class="frame">
+        <div class="cap">25 TRIP LOG</div>
+        <section class="ct phone {{theme}}" id="triplog" data-screen-label="25 Trip log" aria-label="Trip log">
+          <div class="pad">
+            <div class="bar">
+              <a class="ib" href="#trip" aria-label="Back to trip"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <div class="status" role="status"><span class="tick"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg></span>Synced</div>
+              <span class="tap-space"></span>
+            </div>
+            <h1 class="h1">Log</h1>
+            <div class="chips filters">
+              <button class="chip on" aria-pressed="true">Everyone</button>
+              <button class="chip" aria-pressed="false">Me</button>
+              <button class="chip" aria-pressed="false">Sends</button>
+            </div>
+            <div class="stack">
+              <h2 class="group" style="padding-top:0">Sun 18 · Bas Cuvier</h2>
+              <a class="row" href="#boulder">
+                <div class="grade g7">7A</div>
+                <div style="flex:1;min-width:0"><div class="name">La Joker</div><div class="meta"><div class="avs"><div class="av sm p-s">S</div><div class="av sm p-l">L</div></div><span class="tick"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg>Flash · Sent</span></div></div>
+              </a>
+              <a class="row" href="#boulder">
+                <div class="grade g6">6A</div>
+                <div style="flex:1;min-width:0"><div class="name">La Marie-Rose</div><div class="meta"><div class="avs"><div class="av sm p-l">L</div><div class="av sm p-t">T</div></div><span class="tick"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg>Sent</span></div></div>
+              </a>
+              <a class="row" href="#boulder">
+                <div class="grade g7">7B+</div>
+                <div style="flex:1;min-width:0"><div class="name">Carnage</div><div class="meta"><div class="avs"><div class="av sm p-m">M</div></div><span class="sub">3 attempts</span></div></div>
+              </a>
+              <h2 class="group">Sat 17 · Isatis</h2>
+              <a class="row" href="#boulder">
+                <div class="grade g6">6B</div>
+                <div style="flex:1;min-width:0"><div class="name">La Dalle du Pin</div><div class="meta"><div class="avs"><div class="av sm p-i">I</div><div class="av sm p-m">M</div><div class="av sm p-s">S</div></div><span class="tick"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg>Sent</span></div></div>
+              </a>
+            </div>
+          </div>
+          <nav class="dock" aria-label="Trip">
+            <a href="#trip">Trip</a><a href="#wishlist">Wishlist</a><a href="#plan">Plan</a><a href="#gear">Gear</a><a href="#triplog" aria-current="page">Log</a>
+          </nav>
+        </section>
+      </div>
+
+    </div>
+    <div class="steps">
+
+      <a class="ref" href="#home">01 TRIPS HOME</a>
+      <div class="go">Avatar</div>
+
+      <div class="frame">
+        <div class="cap">26 MY LOGBOOK</div>
+        <section class="ct phone {{theme}}" id="logbook" data-screen-label="26 My logbook" aria-label="My logbook">
+          <div class="pad">
+            <div class="bar">
+              <a class="ib" href="#home" aria-label="Back to trips"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <div class="status" role="status"><span class="tick"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg></span>Synced</div>
+              <a class="ib" href="#settings" aria-label="Settings"><svg class="i" aria-hidden="true"><use href="#i-settings"></use></svg></a>
+            </div>
+            <h1 class="h1">Logbook</h1>
+            <div class="chips filters">
+              <button class="chip on" aria-pressed="true">All</button>
+              <button class="chip" aria-pressed="false">Boulder</button>
+              <button class="chip" aria-pressed="false">Route</button>
+              <button class="chip" aria-pressed="false">2026</button>
+            </div>
+            <div class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+              <div class="bar" style="align-items:flex-end">
+                <div class="big xl">148<span> sends</span></div>
+                <div class="bar" style="gap:8px"><span class="sub" style="font-size:13px;font-weight:600">Hardest</span><span class="gtag g7">7B+</span></div>
+              </div>
+              <div class="pyramid">
+                <div>7A–7C</div><div class="pbar g7" style="--p:22"></div><div>12</div>
+                <div>6A–6C</div><div class="pbar g6" style="--p:100"></div><div>54</div>
+                <div>5–5+</div><div class="pbar g5" style="--p:87"></div><div>47</div>
+                <div>≤4+</div><div class="pbar g3" style="--p:65"></div><div>35</div>
+              </div>
+            </div>
+            <div class="stack" style="padding-top:8px">
+              <a class="row slim" href="#boulder"><div class="grade sm g7">7A</div><div style="flex:1;min-width:0"><div class="name">La Joker</div><div class="meta sub">Font Easter · Sun 18</div></div><span class="tick" style="font-size:13px;font-weight:600">Sent</span></a>
+              <a class="row slim" href="#boulder"><div class="grade sm g6">6A</div><div style="flex:1;min-width:0"><div class="name">La Marie-Rose</div><div class="meta sub">Font Easter · Sun 18</div></div><span class="tick" style="font-size:13px;font-weight:600">Flash</span></a>
+              <a class="row slim" href="#boulder"><div class="grade sm g6">6c+</div><div style="flex:1;min-width:0"><div class="name">Las Cuevas</div><div class="meta sub">Outside a trip · 2 Apr</div></div><span class="tick" style="font-size:13px;font-weight:600">Sent</span></a>
+            </div>
+          </div>
+          <button class="dock cta"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></span><span class="label">Log a send</span></button>
+        </section>
+      </div>
+
+      <div class="go">Settings</div>
+
+      <div class="frame">
+        <div class="cap">27 SETTINGS</div>
+        <section class="ct phone {{theme}}" id="settings" data-screen-label="27 Settings" aria-label="Settings">
+          <div class="pad stack" style="gap:10px">
+            <div class="bar">
+              <a class="ib" href="#logbook" aria-label="Back to logbook"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <h1 class="title">Settings</h1>
+              <span class="tap-space"></span>
+            </div>
+            <div class="row" style="margin-top:4px"><div class="av lg flat p-l">L</div><div style="flex:1;min-width:0"><div class="name">Léa</div><div class="meta sub">lea@example.com</div></div><div class="tag">Google</div></div>
+            <h2 class="group">Boulder grades</h2>
+            <div class="seg" role="radiogroup" aria-label="Show boulder grades as">
+              <label><input type="radio" name="gscale" checked="checked">As entered</label>
+              <label><input type="radio" name="gscale">Font</label>
+              <label><input type="radio" name="gscale">V</label>
+            </div>
+            <h2 class="group">Theme</h2>
+            <div class="seg" role="radiogroup" aria-label="Theme">
+              <label><input type="radio" name="theme" checked="checked">Auto</label>
+              <label><input type="radio" name="theme">Dark</label>
+              <label><input type="radio" name="theme">Sunlight</label>
+            </div>
+            <h2 class="group">Offline</h2>
+            <label class="row slim" style="cursor:pointer"><span class="name">Wi-Fi only</span><input type="checkbox" class="switch" role="switch" checked="checked"></label>
+            <a class="row slim" href="#offline"><span class="i-wrap"><svg class="i" aria-hidden="true"><use href="#i-hard-drive"></use></svg></span><span class="name">Storage</span><span class="sub" style="font-weight:600">1.2 GB</span><svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg></a>
+            <div class="stack" style="padding-top:6px">
+              <button class="btn ghost"><svg class="i" aria-hidden="true"><use href="#i-log-out"></use></svg>Sign out</button>
+              <button class="btn danger"><svg class="i" aria-hidden="true"><use href="#i-trash-2"></use></svg>Delete account</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 7 · AFTER THE TRIP -->
+  <section class="flow" aria-label="After the trip">
+    <h2 class="flow-title">8 · After the trip</h2>
+    <div class="steps">
+
+      <a class="ref" href="#home">01 TRIPS HOME</a>
+      <div class="go">Recap</div>
+
+      <div class="frame">
+        <div class="cap">08 TRIP RECAP</div>
+        <section class="ct phone {{theme}}" id="recap" data-screen-label="08 Trip recap" aria-label="Trip recap">
+          <header class="photo hero" style="height:264px">
+            <div class="bar">
+              <a class="ib" href="#home" aria-label="Back to trips"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <button class="ib" aria-label="More"><svg class="i" aria-hidden="true"><use href="#i-ellipsis-vertical"></use></svg></button>
+            </div>
+            <div class="spacer"></div>
+            <h1 class="title-xl">Albarracín</h1>
+            <p style="padding-top:6px">5 days · 4 climbers</p>
+          </header>
+          <div class="pad stack" style="padding-top:8px">
+            <div class="sheet" style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px">
+              <div class="bar" style="align-items:flex-end">
+                <div style="font:700 52px/1 var(--display);letter-spacing:-.03em">31<span style="font:600 16px var(--font);letter-spacing:0"> sends</span></div>
+                <div style="font-weight:600">6 flashes</div>
+              </div>
+              <div class="pyramid">
+                <div>7A–7C</div><div class="pbar g7" style="--p:43"></div><div>6</div>
+                <div>6A–6C</div><div class="pbar g6" style="--p:100"></div><div>14</div>
+                <div>≤5+</div><div class="pbar g5" style="--p:79"></div><div>11</div>
+              </div>
+            </div>
+            <div class="card" style="padding:14px 20px;display:flex;flex-direction:column;gap:8px" role="img" aria-label="Sends per day: Thursday 9, Friday 8, Saturday rest, Sunday 8, Monday 6">
+              <div class="chart plot">
+                <div class="col"><div>9</div><div class="fill" style="height:54px"></div></div>
+                <div class="col"><div>8</div><div class="fill" style="height:48px"></div></div>
+                <div class="col"><div class="sub">rest</div><div class="fill" style="height:6px;border-radius:3px;background:var(--surface2)"></div></div>
+                <div class="col"><div>8</div><div class="fill" style="height:48px"></div></div>
+                <div class="col"><div>6</div><div class="fill" style="height:36px"></div></div>
+              </div>
+              <div class="chart sub"><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div><div>Mon</div></div>
+            </div>
+            <div class="grid4" style="gap:6px">
+              <div class="card stat me" aria-label="You: 9 sends, hardest 7B+"><div class="av md p-l">L</div><div class="big" style="font-size:20px;line-height:1">9</div><div class="gtag g7">7B+</div></div>
+              <div class="card stat" aria-label="Tom: 8 sends, hardest 7A"><div class="av md p-t">T</div><div class="big" style="font-size:20px;line-height:1">8</div><div class="gtag g7">7A</div></div>
+              <div class="card stat" aria-label="Inès: 7 sends, hardest 7A"><div class="av md p-i">I</div><div class="big" style="font-size:20px;line-height:1">7</div><div class="gtag g7">7A</div></div>
+              <div class="card stat" aria-label="Max: 7 sends, hardest 6C"><div class="av md p-m">M</div><div class="big" style="font-size:20px;line-height:1">7</div><div class="gtag g6">6C</div></div>
+            </div>
+          </div>
+          <a class="dock cta" href="#share"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-share"></use></svg></span><span class="label">Share recap</span></a>
+        </section>
+      </div>
+
+      <div class="go">Share recap</div>
+
+      <div class="frame">
+        <div class="cap">28 SHARE CARD</div>
+        <section class="ct phone {{theme}}" id="share" data-screen-label="28 Share card" aria-label="Share recap card">
+          <div class="pad stack" style="gap:16px">
+            <div class="bar">
+              <a class="ib" href="#recap" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></a>
+              <h1 class="title">Share</h1>
+              <span class="tap-space"></span>
+            </div>
+            <div class="sheet" style="overflow:hidden;display:flex;flex-direction:column" role="img" aria-label="Recap card: Albarracín, 31 sends, hardest 7B+">
+              <div class="photo" style="height:190px;padding:20px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end">
+                <p class="h2">Albarracín</p>
+                <p style="padding-top:6px">Oct 2026 · 5 days</p>
+              </div>
+              <div style="padding:18px 20px 20px;display:flex;flex-direction:column;gap:14px">
+                <div class="bar" style="align-items:flex-end">
+                  <div style="font:700 48px/1 var(--display);letter-spacing:-.03em">31<span style="font:600 16px var(--font);letter-spacing:0"> sends</span></div>
+                  <span class="gtag g7">7B+</span>
+                </div>
+                <div class="pyramid">
+                  <div>7A–7C</div><div class="pbar g7" style="--p:43"></div><div>6</div>
+                  <div>6A–6C</div><div class="pbar g6" style="--p:100"></div><div>14</div>
+                  <div>≤5+</div><div class="pbar g5" style="--p:79"></div><div>11</div>
+                </div>
+                <div class="bar">
+                  <div class="avs"><div class="av p-l">L</div><div class="av p-t">T</div><div class="av p-i">I</div><div class="av p-m">M</div></div>
+                  <span class="brand" style="font-size:16px">Cragpack</span>
+                </div>
+              </div>
+            </div>
+            <div class="grid2">
+              <button class="btn ghost"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg>Save image</button>
+              <button class="btn ghost"><svg class="i" aria-hidden="true"><use href="#i-link"></use></svg>Copy link</button>
+            </div>
+          </div>
+          <button class="dock cta"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-share"></use></svg></span><span class="label">Share</span></button>
+        </section>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 8 · MANAGE THE TRIP -->
+  <section class="flow" aria-label="Manage the trip">
+    <h2 class="flow-title">9 · Manage the trip</h2>
+    <div class="steps">
+
+      <a class="ref" href="#trip">02 TRIP OVERVIEW</a>
+      <div class="go">⋮</div>
+
+      <div class="frame">
+        <div class="cap">29 TRIP SETTINGS</div>
+        <section class="ct phone {{theme}}" id="tripsettings" data-screen-label="29 Trip settings" aria-label="Trip settings">
+          <div class="pad stack" style="gap:14px">
+            <div class="bar">
+              <a class="ib" href="#trip" aria-label="Back to trip"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <h1 class="title">Trip settings</h1>
+              <span class="tap-space"></span>
+            </div>
+            <div class="row"><div class="photo thumb" aria-hidden="true"></div><span class="name">Cover</span><button class="btn ghost sm"><svg class="i" aria-hidden="true"><use href="#i-image"></use></svg>Change</button></div>
+            <label class="field"><span class="label">Name</span><input class="input" value="Font Easter"></label>
+            <label class="field"><span class="label">Crag</span><input class="input" value="Fontainebleau"></label>
+            <div class="grid2">
+              <label class="field"><span class="label">Start</span><input class="input" value="Sat 17 Apr" readonly="readonly"></label>
+              <label class="field"><span class="label">End</span><input class="input" value="Wed 21 Apr" readonly="readonly"></label>
+            </div>
+            <div class="row slim" style="padding-right:8px"><span class="i-wrap"><svg class="i" aria-hidden="true"><use href="#i-link"></use></svg></span><span class="name">Invite link</span><button class="btn ghost sm"><svg class="i" aria-hidden="true"><use href="#i-refresh-cw"></use></svg>Reset</button></div>
+            <div class="grid2">
+              <a class="btn ghost" href="#home"><svg class="i" aria-hidden="true"><use href="#i-log-out"></use></svg>Leave trip</a>
+              <a class="btn danger" href="#confirm"><svg class="i" aria-hidden="true"><use href="#i-trash-2"></use></svg>Delete trip</a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="go">Delete trip</div>
+
+      <div class="frame">
+        <div class="cap">30 CONFIRM DELETE</div>
+        <section class="ct phone {{theme}}" id="confirm" data-screen-label="30 Confirm delete" aria-label="Confirm delete">
+          <div class="pad" aria-hidden="true">
+            <div class="bar"><span class="ib"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></span><p class="title">Trip settings</p><span class="tap-space"></span></div>
+          </div>
+          <div class="scrim"></div>
+          <div class="dialog" role="alertdialog" aria-label="Delete Font Easter?">
+            <h2 class="h3">Delete Font Easter?</h2>
+            <p class="sub" style="line-height:1.4">The plan, beta and logs go for all 5 climbers. Sends stay in each personal logbook.</p>
+            <div class="grid2" style="padding-top:8px">
+              <a class="btn ghost" href="#tripsettings">Cancel</a>
+              <a class="btn danger solid" href="#home">Delete</a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </div>
+    <div class="steps">
+
+      <a class="ref" href="#crew">07 CREW / INVITE</a>
+      <div class="go">Tap a climber</div>
+
+      <div class="frame">
+        <div class="cap">31 CLIMBER</div>
+        <section class="ct phone {{theme}}" id="member" data-screen-label="31 Climber" aria-label="Climber options">
+          <div class="pad" aria-hidden="true">
+            <div class="bar"><span class="ib"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></span><span class="tap-space"></span></div>
+            <p class="h1">Crew</p>
+          </div>
+          <div class="scrim"></div>
+          <div class="bottom-sheet" role="dialog" aria-label="Tom">
+            <div class="grab" aria-hidden="true"></div>
+            <div class="bar" style="justify-content:flex-start;gap:14px">
+              <div class="av lg flat p-t" aria-hidden="true">T</div>
+              <h2 class="h3" style="flex:1">Tom</h2>
+              <div class="tag"><i class="st full" aria-hidden="true"></i>Saved</div>
+            </div>
+            <button class="row slim"><svg class="i" aria-hidden="true"><use href="#i-shield-check"></use></svg><span class="name">Make organiser</span></button>
+            <button class="row slim danger-ink"><svg class="i" aria-hidden="true"><use href="#i-user-minus"></use></svg><span class="name">Remove from trip</span></button>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 9 · EMPTY & PROBLEM STATES -->
+  <section class="flow" aria-label="Empty and problem states">
+    <h2 class="flow-title">10 · Empty &amp; problem states</h2>
+    <div class="steps states">
+
+      <div class="frame">
+        <div class="cap">16 WISHLIST · EMPTY</div>
+        <section class="ct phone {{theme}}" id="wishlist0" data-screen-label="16 Wishlist empty" aria-label="Wishlist, empty">
+          <div class="pad">
+            <div class="bar">
+              <a class="ib" href="#trip" aria-label="Back to trip"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <div class="status" role="status"><span class="tick"><svg class="i sm" aria-hidden="true"><use href="#i-check"></use></svg></span>Synced</div>
+              <a class="ib accent" href="#addobj" aria-label="Add objective"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg></a>
+            </div>
+            <h1 class="h1">Wishlist</h1>
+            <div class="card tile todo empty" style="height:320px;margin-top:14px">
+              <h2 class="h3">No objectives yet</h2>
+              <a class="btn" href="#addobj"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg>Add objective</a>
+            </div>
+          </div>
+          <nav class="dock" aria-label="Trip">
+            <a href="#trip">Trip</a><a href="#wishlist0" aria-current="page">Wishlist</a><a href="#plan">Plan</a><a href="#gear">Gear</a><a href="#triplog">Log</a>
+          </nav>
+        </section>
+      </div>
+
+      <div class="frame">
+        <div class="cap">17 INVITE EXPIRED</div>
+        <section class="ct phone {{theme}}" id="expired" data-screen-label="17 Invite expired" aria-label="Invite link expired">
+          <div class="pad">
+            <div class="bar"><span class="brand">Cragpack</span></div>
+            <div class="card tile todo empty" style="height:360px;margin-top:120px">
+              <svg class="i lg" aria-hidden="true"><use href="#i-link"></use></svg>
+              <h1 class="h3">This link has expired</h1>
+              <p class="sub">Ask the organiser for a new one.</p>
+            </div>
+          </div>
+          <a class="dock cta" href="#home"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span><span class="label">Go to my trips</span></a>
+        </section>
+      </div>
+
+      <div class="frame">
+        <div class="cap">18 STORAGE FULL</div>
+        <section class="ct phone {{theme}}" id="offlinefail" data-screen-label="18 Storage full" aria-label="Saving paused, storage full">
+          <div class="pad">
+            <div class="bar">
+              <a class="ib" href="#trip" aria-label="Back to trip"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></a>
+              <div class="status todo" role="status"><svg class="i sm" aria-hidden="true"><use href="#i-pause"></use></svg>Paused</div>
+              <button class="ib" aria-label="More"><svg class="i" aria-hidden="true"><use href="#i-ellipsis-vertical"></use></svg></button>
+            </div>
+            <h1 class="h1">Offline</h1>
+            <div class="bar" style="justify-content:flex-start;gap:24px;padding:20px 4px">
+              <div class="ring" style="--p:62" role="progressbar" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100" aria-label="Saved for offline, paused"><div>62%</div></div>
+              <div class="stack" style="gap:10px">
+                <div class="big">255<span> /412 MB</span></div>
+                <div class="big">11<span> /18 objectives</span></div>
+              </div>
+            </div>
+            <div class="stack">
+              <div class="row todo">
+                <span class="i-wrap"><svg class="i" aria-hidden="true"><use href="#i-hard-drive"></use></svg></span>
+                <div style="flex:1;min-width:0"><div class="name">Phone storage full</div><div class="meta sub">157 MB more needed</div></div>
+                <a class="btn sm" href="#settings">Free up</a>
+              </div>
+              <div class="row slim" style="padding-right:8px"><div class="grade sm g7">7B+</div><div class="name">Carnage</div><button class="btn ghost sm"><svg class="i" aria-hidden="true"><use href="#i-refresh-cw"></use></svg>Retry</button></div>
+              <div class="row slim"><div class="grade sm g6">6C</div><div class="name">Duroxmanie</div><span class="sub" style="font-size:13px;font-weight:600">Queued</span></div>
+              <div class="row slim"><div class="grade sm g7">7A</div><div class="name">La Joker</div><div class="tag"><i class="st full" aria-hidden="true"></i>Saved</div></div>
+            </div>
+          </div>
+          <button class="dock cta"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-refresh-cw"></use></svg></span><span class="label">Retry all</span></button>
+        </section>
+      </div>
+
+      <div class="frame">
+        <div class="cap">19 SYNC CONFLICT</div>
+        <section class="ct phone {{theme}}" id="conflict" data-screen-label="19 Sync conflict" aria-label="Sync conflict">
+          <div class="pad" aria-hidden="true">
+            <div class="bar"><span class="ib"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></span><span class="tap-space"></span></div>
+            <p class="h1">Plan</p>
+          </div>
+          <div class="scrim"></div>
+          <div class="bottom-sheet" role="dialog" aria-label="Carnage was moved twice">
+            <div class="grab" aria-hidden="true"></div>
+            <div class="bar" style="justify-content:flex-start;gap:14px">
+              <div class="grade sm g7">7B+</div>
+              <h2 class="h3">Carnage moved twice</h2>
+            </div>
+            <div class="stack" role="radiogroup" aria-label="Keep which day">
+              <label class="row" style="cursor:pointer"><input type="radio" class="radio" name="conflict" checked="checked"><div style="flex:1;min-width:0"><div class="name">Sun 18 · Bas Cuvier</div><div class="meta sub">You · 10:42</div></div><div class="av p-l" aria-hidden="true">L</div></label>
+              <label class="row" style="cursor:pointer"><input type="radio" class="radio" name="conflict"><div style="flex:1;min-width:0"><div class="name">Mon 19 · Apremont</div><div class="meta sub">Tom · 10:47</div></div><div class="av p-t" aria-hidden="true">T</div></label>
+            </div>
+            <a class="btn accent wide" href="#plan"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg>Keep Sun 18</a>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </section>
+</main>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sunlight":{"editor":"boolean","default":false}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.sunlight ? 'light' : 'dark' };
+  }
+}
+</script>
+</body>
+</html>

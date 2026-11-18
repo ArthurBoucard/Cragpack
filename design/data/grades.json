@@ -1,0 +1,486 @@
+{
+  "$description": "Cragpack grade reference. Store grades exactly as entered (scale + value). band = colour class gN (first digit; V uses its Font equivalent, VB counts as band 3). index = sort order within one discipline: boulder indexes are shared by Font and V, route indexes are separate. Font↔V is the common published approximation, not an exact science.",
+  "bands": {
+    "1": "#d9cdef",
+    "2": "#d9cdef",
+    "3": "#f2b6c6",
+    "4": "#f2b6c6",
+    "5": "#a6d98c",
+    "6": "#6aa5e0",
+    "7": "#e2604f",
+    "8": "#1c1814",
+    "9": "gold gradient #f7dc7e → #d9a531 → #b9841c"
+  },
+  "boulder_font_to_v": [
+    {
+      "font": "1",
+      "v": "VB",
+      "band": 1,
+      "index": 0
+    },
+    {
+      "font": "2",
+      "v": "VB",
+      "band": 2,
+      "index": 1
+    },
+    {
+      "font": "3",
+      "v": "VB",
+      "band": 3,
+      "index": 2
+    },
+    {
+      "font": "4",
+      "v": "V0",
+      "band": 4,
+      "index": 3
+    },
+    {
+      "font": "4+",
+      "v": "V0+",
+      "band": 4,
+      "index": 4
+    },
+    {
+      "font": "5",
+      "v": "V1",
+      "band": 5,
+      "index": 5
+    },
+    {
+      "font": "5+",
+      "v": "V2",
+      "band": 5,
+      "index": 6
+    },
+    {
+      "font": "6A",
+      "v": "V3",
+      "band": 6,
+      "index": 7
+    },
+    {
+      "font": "6A+",
+      "v": "V3",
+      "band": 6,
+      "index": 8
+    },
+    {
+      "font": "6B",
+      "v": "V4",
+      "band": 6,
+      "index": 9
+    },
+    {
+      "font": "6B+",
+      "v": "V4",
+      "band": 6,
+      "index": 10
+    },
+    {
+      "font": "6C",
+      "v": "V5",
+      "band": 6,
+      "index": 11
+    },
+    {
+      "font": "6C+",
+      "v": "V5",
+      "band": 6,
+      "index": 12
+    },
+    {
+      "font": "7A",
+      "v": "V6",
+      "band": 7,
+      "index": 13
+    },
+    {
+      "font": "7A+",
+      "v": "V7",
+      "band": 7,
+      "index": 14
+    },
+    {
+      "font": "7B",
+      "v": "V8",
+      "band": 7,
+      "index": 15
+    },
+    {
+      "font": "7B+",
+      "v": "V8",
+      "band": 7,
+      "index": 16
+    },
+    {
+      "font": "7C",
+      "v": "V9",
+      "band": 7,
+      "index": 17
+    },
+    {
+      "font": "7C+",
+      "v": "V10",
+      "band": 7,
+      "index": 18
+    },
+    {
+      "font": "8A",
+      "v": "V11",
+      "band": 8,
+      "index": 19
+    },
+    {
+      "font": "8A+",
+      "v": "V12",
+      "band": 8,
+      "index": 20
+    },
+    {
+      "font": "8B",
+      "v": "V13",
+      "band": 8,
+      "index": 21
+    },
+    {
+      "font": "8B+",
+      "v": "V14",
+      "band": 8,
+      "index": 22
+    },
+    {
+      "font": "8C",
+      "v": "V15",
+      "band": 8,
+      "index": 23
+    },
+    {
+      "font": "8C+",
+      "v": "V16",
+      "band": 8,
+      "index": 24
+    },
+    {
+      "font": "9A",
+      "v": "V17",
+      "band": 9,
+      "index": 25
+    }
+  ],
+  "boulder_v": [
+    {
+      "v": "VB",
+      "font": "1",
+      "band": 3,
+      "index": 0
+    },
+    {
+      "v": "V0",
+      "font": "4",
+      "band": 4,
+      "index": 3
+    },
+    {
+      "v": "V0+",
+      "font": "4+",
+      "band": 4,
+      "index": 4
+    },
+    {
+      "v": "V1",
+      "font": "5",
+      "band": 5,
+      "index": 5
+    },
+    {
+      "v": "V2",
+      "font": "5+",
+      "band": 5,
+      "index": 6
+    },
+    {
+      "v": "V3",
+      "font": "6A",
+      "band": 6,
+      "index": 7
+    },
+    {
+      "v": "V4",
+      "font": "6B",
+      "band": 6,
+      "index": 9
+    },
+    {
+      "v": "V5",
+      "font": "6C",
+      "band": 6,
+      "index": 11
+    },
+    {
+      "v": "V6",
+      "font": "7A",
+      "band": 7,
+      "index": 13
+    },
+    {
+      "v": "V7",
+      "font": "7A+",
+      "band": 7,
+      "index": 14
+    },
+    {
+      "v": "V8",
+      "font": "7B",
+      "band": 7,
+      "index": 15
+    },
+    {
+      "v": "V9",
+      "font": "7C",
+      "band": 7,
+      "index": 17
+    },
+    {
+      "v": "V10",
+      "font": "7C+",
+      "band": 7,
+      "index": 18
+    },
+    {
+      "v": "V11",
+      "font": "8A",
+      "band": 8,
+      "index": 19
+    },
+    {
+      "v": "V12",
+      "font": "8A+",
+      "band": 8,
+      "index": 20
+    },
+    {
+      "v": "V13",
+      "font": "8B",
+      "band": 8,
+      "index": 21
+    },
+    {
+      "v": "V14",
+      "font": "8B+",
+      "band": 8,
+      "index": 22
+    },
+    {
+      "v": "V15",
+      "font": "8C",
+      "band": 8,
+      "index": 23
+    },
+    {
+      "v": "V16",
+      "font": "8C+",
+      "band": 8,
+      "index": 24
+    },
+    {
+      "v": "V17",
+      "font": "9A",
+      "band": 9,
+      "index": 25
+    }
+  ],
+  "route_french": [
+    {
+      "french": "1a",
+      "band": 1,
+      "index": 0
+    },
+    {
+      "french": "1b",
+      "band": 1,
+      "index": 1
+    },
+    {
+      "french": "1c",
+      "band": 1,
+      "index": 2
+    },
+    {
+      "french": "2a",
+      "band": 2,
+      "index": 3
+    },
+    {
+      "french": "2b",
+      "band": 2,
+      "index": 4
+    },
+    {
+      "french": "2c",
+      "band": 2,
+      "index": 5
+    },
+    {
+      "french": "3a",
+      "band": 3,
+      "index": 6
+    },
+    {
+      "french": "3b",
+      "band": 3,
+      "index": 7
+    },
+    {
+      "french": "3c",
+      "band": 3,
+      "index": 8
+    },
+    {
+      "french": "4a",
+      "band": 4,
+      "index": 9
+    },
+    {
+      "french": "4b",
+      "band": 4,
+      "index": 10
+    },
+    {
+      "french": "4c",
+      "band": 4,
+      "index": 11
+    },
+    {
+      "french": "5a",
+      "band": 5,
+      "index": 12
+    },
+    {
+      "french": "5b",
+      "band": 5,
+      "index": 13
+    },
+    {
+      "french": "5c",
+      "band": 5,
+      "index": 14
+    },
+    {
+      "french": "6a",
+      "band": 6,
+      "index": 15
+    },
+    {
+      "french": "6a+",
+      "band": 6,
+      "index": 16
+    },
+    {
+      "french": "6b",
+      "band": 6,
+      "index": 17
+    },
+    {
+      "french": "6b+",
+      "band": 6,
+      "index": 18
+    },
+    {
+      "french": "6c",
+      "band": 6,
+      "index": 19
+    },
+    {
+      "french": "6c+",
+      "band": 6,
+      "index": 20
+    },
+    {
+      "french": "7a",
+      "band": 7,
+      "index": 21
+    },
+    {
+      "french": "7a+",
+      "band": 7,
+      "index": 22
+    },
+    {
+      "french": "7b",
+      "band": 7,
+      "index": 23
+    },
+    {
+      "french": "7b+",
+      "band": 7,
+      "index": 24
+    },
+    {
+      "french": "7c",
+      "band": 7,
+      "index": 25
+    },
+    {
+      "french": "7c+",
+      "band": 7,
+      "index": 26
+    },
+    {
+      "french": "8a",
+      "band": 8,
+      "index": 27
+    },
+    {
+      "french": "8a+",
+      "band": 8,
+      "index": 28
+    },
+    {
+      "french": "8b",
+      "band": 8,
+      "index": 29
+    },
+    {
+      "french": "8b+",
+      "band": 8,
+      "index": 30
+    },
+    {
+      "french": "8c",
+      "band": 8,
+      "index": 31
+    },
+    {
+      "french": "8c+",
+      "band": 8,
+      "index": 32
+    },
+    {
+      "french": "9a",
+      "band": 9,
+      "index": 33
+    },
+    {
+      "french": "9a+",
+      "band": 9,
+      "index": 34
+    },
+    {
+      "french": "9b",
+      "band": 9,
+      "index": 35
+    },
+    {
+      "french": "9b+",
+      "band": 9,
+      "index": 36
+    },
+    {
+      "french": "9c",
+      "band": 9,
+      "index": 37
+    }
+  ]
+}
