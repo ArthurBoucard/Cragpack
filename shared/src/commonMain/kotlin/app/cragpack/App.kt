@@ -6,6 +6,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.navigation.NavController
+import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -77,18 +80,18 @@ private fun AppNav(graph: AppGraph) {
         composable<TripsRoute> {
             TripsScreen(
                 viewModel { TripsViewModel(graph) },
-                onNewTrip = { nav.navigate(NewTripRoute) },
-                onOpenTrip = { nav.navigate(TripRoute(it)) },
-                onRecap = { nav.navigate(RecapRoute(it)) },
-                onLogbook = { nav.navigate(LogbookRoute) },
-                onSettings = { nav.navigate(SettingsRoute) },
+                onNewTrip = { nav.open(NewTripRoute) },
+                onOpenTrip = { nav.open(TripRoute(it)) },
+                onRecap = { nav.open(RecapRoute(it)) },
+                onLogbook = { nav.open(LogbookRoute) },
+                onSettings = { nav.open(SettingsRoute) },
             )
         }
         composable<NewTripRoute> {
             NewTripScreen(
                 viewModel { NewTripViewModel(graph) },
-                onClose = { nav.popBackStack() },
-                onCreated = { id -> nav.navigate(TripRoute(id)) { popUpTo(TripsRoute) } },
+                onClose = { nav.back() },
+                onCreated = { id -> nav.open(TripRoute(id)) { popUpTo(TripsRoute) } },
             )
         }
         composable<TripRoute> { entry ->
@@ -99,22 +102,22 @@ private fun AppNav(graph: AppGraph) {
                 viewModel { TripLogViewModel(graph, id) },
                 viewModel { PlanViewModel(graph, id) },
                 viewModel { GearViewModel(graph, id) },
-                onBack = { nav.popBackStack() },
-                onAddObjective = { nav.navigate(ObjectiveFormRoute(id)) },
-                onOpenObjective = { nav.navigate(ObjectiveRoute(it)) },
-                onEditDay = { nav.navigate(EditDayRoute(id, it)) },
-                onSettings = { nav.navigate(TripSettingsRoute(id)) },
+                onBack = { nav.back() },
+                onAddObjective = { nav.open(ObjectiveFormRoute(id)) },
+                onOpenObjective = { nav.open(ObjectiveRoute(it)) },
+                onEditDay = { nav.open(EditDayRoute(id, it)) },
+                onSettings = { nav.open(TripSettingsRoute(id)) },
             )
         }
         composable<ObjectiveFormRoute> { entry ->
             val route = entry.toRoute<ObjectiveFormRoute>()
             ObjectiveFormScreen(
                 viewModel { ObjectiveFormViewModel(graph, route.tripId, route.objectiveId) },
-                onClose = { nav.popBackStack() },
+                onClose = { nav.back() },
                 onSaved = { id ->
                     // A new objective opens its detail so beta can be added right away (flow 4); an edit just closes.
-                    if (route.objectiveId != null) nav.popBackStack()
-                    else nav.navigate(ObjectiveRoute(id)) { popUpTo<ObjectiveFormRoute> { inclusive = true } }
+                    if (route.objectiveId != null) nav.back()
+                    else nav.open(ObjectiveRoute(id)) { popUpTo<ObjectiveFormRoute> { inclusive = true } }
                 },
             )
         }
@@ -123,36 +126,55 @@ private fun AppNav(graph: AppGraph) {
             val vm = viewModel { ObjectiveViewModel(graph, id) }
             ObjectiveScreen(
                 vm,
-                onBack = { nav.popBackStack() },
-                onEdit = { vm.state.value?.let { nav.navigate(ObjectiveFormRoute(it.objective.tripId, id)) } },
+                onBack = { nav.back() },
+                onEdit = { vm.state.value?.let { nav.open(ObjectiveFormRoute(it.objective.tripId, id)) } },
             )
         }
         composable<EditDayRoute> { entry ->
             val route = entry.toRoute<EditDayRoute>()
-            EditDayScreen(viewModel { EditDayViewModel(graph, route.tripId, route.dayId) }, onClose = { nav.popBackStack() })
+            EditDayScreen(viewModel { EditDayViewModel(graph, route.tripId, route.dayId) }, onClose = { nav.back() })
         }
         composable<LogbookRoute> {
             LogbookScreen(
                 viewModel { LogbookViewModel(graph) },
-                onBack = { nav.popBackStack() },
-                onLogSend = { nav.navigate(LogSendRoute) },
-                onOpen = { nav.navigate(ObjectiveRoute(it)) },
-                onSettings = { nav.navigate(SettingsRoute) },
+                onBack = { nav.back() },
+                onLogSend = { nav.open(LogSendRoute) },
+                onOpen = { nav.open(ObjectiveRoute(it)) },
+                onSettings = { nav.open(SettingsRoute) },
             )
         }
-        composable<LogSendRoute> { LogSendScreen(viewModel { LogSendViewModel(graph) }, onClose = { nav.popBackStack() }) }
-        composable<SettingsRoute> { SettingsScreen(viewModel { SettingsViewModel(graph) }, onBack = { nav.popBackStack() }) }
+        composable<LogSendRoute> { LogSendScreen(viewModel { LogSendViewModel(graph) }, onClose = { nav.back() }) }
+        composable<SettingsRoute> { SettingsScreen(viewModel { SettingsViewModel(graph) }, onBack = { nav.back() }) }
         composable<TripSettingsRoute> { entry ->
             val tripId = entry.toRoute<TripSettingsRoute>().tripId
             TripSettingsScreen(
                 viewModel { TripSettingsViewModel(graph, tripId) },
-                onBack = { nav.popBackStack() },
-                onDeleted = { nav.popBackStack(TripsRoute, inclusive = false) },
+                onBack = { nav.back() },
+                onDeleted = { nav.back(TripsRoute, inclusive = false) },
             )
         }
         composable<RecapRoute> { entry ->
             val tripId = entry.toRoute<RecapRoute>().tripId
-            RecapScreen(viewModel { RecapViewModel(graph, tripId) }, onBack = { nav.popBackStack() })
+            RecapScreen(viewModel { RecapViewModel(graph, tripId) }, onBack = { nav.back() })
         }
     }
+}
+
+/*
+ * Every move goes through these, and only from a settled screen. A second tap on Back, or Back while a
+ * transition runs, would otherwise pop twice; popping the start screen empties the back stack and leaves
+ * a blank grey window. A double tap on a link would open the screen twice.
+ */
+private fun NavController.settled() = currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED
+
+private fun NavController.open(route: Any, builder: NavOptionsBuilder.() -> Unit = {}) {
+    if (settled()) navigate(route, builder)
+}
+
+private fun NavController.back() {
+    if (settled() && previousBackStackEntry != null) popBackStack()
+}
+
+private fun NavController.back(route: Any, inclusive: Boolean) {
+    if (settled()) popBackStack(route, inclusive)
 }

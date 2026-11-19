@@ -87,7 +87,7 @@ fun CtCard(
 }
 
 /**
- * `.photo` — a dark photo surface: the image at [imagePath] (an absolute file path), or the striped
+ * `.photo` — a dark photo surface: the image at [imagePath] (an absolute file path or a URL), or the striped
  * placeholder without one, a scrim so text stays readable, and dark colours inside in both themes.
  */
 @Composable
@@ -140,28 +140,13 @@ fun BetaThumb(
     }
 }
 
-/** `.media.add` — the + at the start of the beta strip. */
+/** `.media.add` — the + at the start of the beta strip, labelled like the thumbs beside it. */
 @Composable
 fun AddBetaThumb(onClick: () -> Unit, modifier: Modifier = Modifier) =
     CtCard(modifier.size(108.dp, 128.dp).semantics { contentDescription = "Add beta" }, radius = RadiusTokens.md, onClick = onClick) {
         CtIcon(LucideIcon.Plus, null, Modifier.align(Alignment.Center), size = 28.dp)
+        CtText("Add", Modifier.align(Alignment.BottomStart).padding(horizontal = 12.dp, vertical = 10.dp), style = CragpackTheme.type.label, maxLines = 1)
     }
-
-/**
- * Full-screen photo, always dark. Tap or back closes it. Place it in [CtScreen]'s overlay slot.
- * ponytail: the full media viewer (21: video, position, scrubber) comes in Phase 3.
- */
-@Composable
-fun BoxScope.ImageViewer(imagePath: String?, onDismiss: () -> Unit) {
-    CtBackHandler(enabled = imagePath != null, onBack = onDismiss)
-    if (imagePath == null) return
-    Box(
-        Modifier.matchParentSize().background(ColorTokens.photoScrim).clickable(null, indication = null, onClick = onDismiss),
-        contentAlignment = Alignment.Center,
-    ) {
-        AsyncImage(imagePath, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-    }
-}
 
 /** `.tile` — label on top, big number at the bottom, optional corner action. */
 @Composable

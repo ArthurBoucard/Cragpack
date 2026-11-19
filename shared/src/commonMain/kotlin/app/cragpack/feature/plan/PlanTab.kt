@@ -133,7 +133,7 @@ fun PlanTab(vm: PlanViewModel, bottom: PaddingValues, onBack: () -> Unit, onEdit
                 }
                 if (items.isEmpty()) {
                     CtText(
-                        if (state.unplanned.isEmpty()) "Nothing planned. Add objectives to the wishlist first." else "Nothing planned. Tap an objective below to add it.",
+                        if (state.unplanned.isEmpty()) "Nothing planned. Add projects first." else "Nothing planned. Tap a project below to add it.",
                         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 16.dp),
                         color = CragpackTheme.colors.ink2,
                         textAlign = TextAlign.Center,

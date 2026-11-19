@@ -10,7 +10,7 @@ Screen numbers are IDs, not an order. The device frame is 390×844 pt (iPhone 14
 ## Navigation model
 
 - **Trips home** is the root. The avatar on Trips home opens **My logbook**, and Settings is inside My logbook.
-- **Inside a trip**, a 5-tab dock: **Trip · Wishlist · Plan · Gear · Log**.
+- **Inside a trip**, a 5-tab dock: **Trip · Projects · Plan · Gear · Log** (the Projects tab was called Wishlist in the design files).
 - **Forms and flows** (new trip, add objective, edit day, create account) close with **✕** at top left and finish with one main button in the dock.
 - **Drill-downs** (boulder detail, crew, trip settings) go back with **‹**.
 - **Overlays**:
@@ -53,7 +53,7 @@ Screen numbers are IDs, not an order. The device frame is 390×844 pt (iPhone 14
 | # | Screen | Purpose and content | Goes to |
 |---|---|---|---|
 | 03 | Wishlist | Filters: Sector, Grade, Who. Rows are grouped by sector. Each row shows a grade chip, name, interested avatars, sent/not-saved state and a ★ toggle (I want to try it). The top-right **+** adds an objective. | Add objective (12), Boulder detail (05) |
-| 12 | Add objective | Name, style (Boulder / Sport / Trad), a grade picker in band colours, sector chips (plus a new sector), and Pin location. Dock: **Add to wishlist**. | Boulder detail (05) of the new objective, to add beta right away |
+| 12 | Add objective | Name, style (Boulder / Sport / Trad), a grade picker in band colours, sector chips (plus a new sector), and Pin location. Dock: **Add to projects**. | Boulder detail (05) of the new objective, to add beta right away |
 | 05 | Boulder / route detail | Photo hero with grade and name, and a Navigate chip for the sector. A beta strip (+ add, videos, topo; YouTube items marked online only), a note from a climber, and tiles for who wants it and who sent it. Dock: **Attempt · Sent · Flash**. | Add beta (20), Media viewer (21), Logged (24) |
 
 ## Flow 5 · Add beta

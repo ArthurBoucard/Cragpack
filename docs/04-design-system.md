@@ -106,8 +106,8 @@ Text on bands 1–7 and 9 is #1c1814. The full Font↔V table and sort indexes a
 | `.days`, `.day` | `DayTabs` | date and sector, or Rest; scrolls sideways |
 | `.drop`, `.drag`, `.grip` | drag-and-drop states | dashed accent slot, lifted card tilted −3° |
 | `.tray`, `.pick` | `UnplannedTray` | floating, scrolls sideways; each item has a + |
-| `.dock` | `TabDock` | 5 tabs; the current tab is filled with bg plus an accent dot |
-| `.dock.cta` | `CtaDock` | accent icon at left plus a centred label |
+| `.dock` | `TabDock` | 5 tabs; the current tab is an accent pill |
+| `.dock.cta` | `CtaDock` | slide to confirm: drag the accent knob across to the far end; centred label |
 | `.dock.log` | `LogDock` | Attempt / Sent / Flash; the chosen one is accent |
 | `.bottom-sheet` + `.scrim` | `CtBottomSheet` | grab handle, title row with ✕ |
 | `.dialog` | `CtConfirmDialog` | title, short consequence text, Cancel + danger |

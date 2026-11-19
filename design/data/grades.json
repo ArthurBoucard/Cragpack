@@ -19,154 +19,196 @@
       "index": 0
     },
     {
+      "font": "1+",
+      "v": "VB",
+      "band": 1,
+      "index": 1
+    },
+    {
+      "font": "2-",
+      "v": "VB",
+      "band": 2,
+      "index": 2
+    },
+    {
       "font": "2",
       "v": "VB",
       "band": 2,
-      "index": 1
+      "index": 3
+    },
+    {
+      "font": "2+",
+      "v": "VB",
+      "band": 2,
+      "index": 4
+    },
+    {
+      "font": "3-",
+      "v": "VB",
+      "band": 3,
+      "index": 5
     },
     {
       "font": "3",
       "v": "VB",
       "band": 3,
-      "index": 2
+      "index": 6
+    },
+    {
+      "font": "3+",
+      "v": "VB",
+      "band": 3,
+      "index": 7
+    },
+    {
+      "font": "4-",
+      "v": "V0-",
+      "band": 4,
+      "index": 8
     },
     {
       "font": "4",
       "v": "V0",
       "band": 4,
-      "index": 3
+      "index": 9
     },
     {
       "font": "4+",
       "v": "V0+",
       "band": 4,
-      "index": 4
+      "index": 10
+    },
+    {
+      "font": "5-",
+      "v": "V1",
+      "band": 5,
+      "index": 11
     },
     {
       "font": "5",
       "v": "V1",
       "band": 5,
-      "index": 5
+      "index": 12
     },
     {
       "font": "5+",
       "v": "V2",
       "band": 5,
-      "index": 6
+      "index": 13
     },
     {
       "font": "6A",
       "v": "V3",
       "band": 6,
-      "index": 7
+      "index": 14
     },
     {
       "font": "6A+",
       "v": "V3",
       "band": 6,
-      "index": 8
+      "index": 15
     },
     {
       "font": "6B",
       "v": "V4",
       "band": 6,
-      "index": 9
+      "index": 16
     },
     {
       "font": "6B+",
       "v": "V4",
       "band": 6,
-      "index": 10
+      "index": 17
     },
     {
       "font": "6C",
       "v": "V5",
       "band": 6,
-      "index": 11
+      "index": 18
     },
     {
       "font": "6C+",
       "v": "V5",
       "band": 6,
-      "index": 12
+      "index": 19
     },
     {
       "font": "7A",
       "v": "V6",
       "band": 7,
-      "index": 13
+      "index": 20
     },
     {
       "font": "7A+",
       "v": "V7",
       "band": 7,
-      "index": 14
+      "index": 21
     },
     {
       "font": "7B",
       "v": "V8",
       "band": 7,
-      "index": 15
+      "index": 22
     },
     {
       "font": "7B+",
       "v": "V8",
       "band": 7,
-      "index": 16
+      "index": 23
     },
     {
       "font": "7C",
       "v": "V9",
       "band": 7,
-      "index": 17
+      "index": 24
     },
     {
       "font": "7C+",
       "v": "V10",
       "band": 7,
-      "index": 18
+      "index": 25
     },
     {
       "font": "8A",
       "v": "V11",
       "band": 8,
-      "index": 19
+      "index": 26
     },
     {
       "font": "8A+",
       "v": "V12",
       "band": 8,
-      "index": 20
+      "index": 27
     },
     {
       "font": "8B",
       "v": "V13",
       "band": 8,
-      "index": 21
+      "index": 28
     },
     {
       "font": "8B+",
       "v": "V14",
       "band": 8,
-      "index": 22
+      "index": 29
     },
     {
       "font": "8C",
       "v": "V15",
       "band": 8,
-      "index": 23
+      "index": 30
     },
     {
       "font": "8C+",
       "v": "V16",
       "band": 8,
-      "index": 24
+      "index": 31
     },
     {
       "font": "9A",
       "v": "V17",
       "band": 9,
-      "index": 25
+      "index": 32
     }
   ],
   "boulder_v": [
@@ -177,118 +219,124 @@
       "index": 0
     },
     {
+      "v": "V0-",
+      "font": "4-",
+      "band": 4,
+      "index": 8
+    },
+    {
       "v": "V0",
       "font": "4",
       "band": 4,
-      "index": 3
+      "index": 9
     },
     {
       "v": "V0+",
       "font": "4+",
       "band": 4,
-      "index": 4
+      "index": 10
     },
     {
       "v": "V1",
       "font": "5",
       "band": 5,
-      "index": 5
+      "index": 12
     },
     {
       "v": "V2",
       "font": "5+",
       "band": 5,
-      "index": 6
+      "index": 13
     },
     {
       "v": "V3",
       "font": "6A",
       "band": 6,
-      "index": 7
+      "index": 14
     },
     {
       "v": "V4",
       "font": "6B",
       "band": 6,
-      "index": 9
+      "index": 16
     },
     {
       "v": "V5",
       "font": "6C",
       "band": 6,
-      "index": 11
+      "index": 18
     },
     {
       "v": "V6",
       "font": "7A",
       "band": 7,
-      "index": 13
+      "index": 20
     },
     {
       "v": "V7",
       "font": "7A+",
       "band": 7,
-      "index": 14
+      "index": 21
     },
     {
       "v": "V8",
       "font": "7B",
       "band": 7,
-      "index": 15
+      "index": 22
     },
     {
       "v": "V9",
       "font": "7C",
       "band": 7,
-      "index": 17
+      "index": 24
     },
     {
       "v": "V10",
       "font": "7C+",
       "band": 7,
-      "index": 18
+      "index": 25
     },
     {
       "v": "V11",
       "font": "8A",
       "band": 8,
-      "index": 19
+      "index": 26
     },
     {
       "v": "V12",
       "font": "8A+",
       "band": 8,
-      "index": 20
+      "index": 27
     },
     {
       "v": "V13",
       "font": "8B",
       "band": 8,
-      "index": 21
+      "index": 28
     },
     {
       "v": "V14",
       "font": "8B+",
       "band": 8,
-      "index": 22
+      "index": 29
     },
     {
       "v": "V15",
       "font": "8C",
       "band": 8,
-      "index": 23
+      "index": 30
     },
     {
       "v": "V16",
       "font": "8C+",
       "band": 8,
-      "index": 24
+      "index": 31
     },
     {
       "v": "V17",
       "font": "9A",
       "band": 9,
-      "index": 25
+      "index": 32
     }
   ],
   "route_french": [

@@ -44,6 +44,7 @@ import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.grade.GradeDisplay
+import app.cragpack.domain.objective.BetaType
 import app.cragpack.feature.LocalGradeDisplay
 import app.cragpack.feature.text
 import app.cragpack.domain.trip.Person
@@ -103,7 +104,7 @@ internal fun Objective.matches(filter: WishlistFilter, key: String): Boolean = w
 
 private const val NO_SECTOR = "No sector"
 
-/** Screens 03 and 16 (empty). Draw [WishlistFilterSheet] in the screen overlay. */
+/** Screens 03 and 16 (empty), shown as "Projects". Draw [WishlistFilterSheet] in the screen overlay. */
 @Composable
 fun WishlistTab(vm: WishlistViewModel, bottom: PaddingValues, onBack: () -> Unit, onAdd: () -> Unit, onOpen: (String) -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -118,15 +119,15 @@ fun WishlistTab(vm: WishlistViewModel, bottom: PaddingValues, onBack: () -> Unit
             TopBar(
                 leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) },
                 center = { SyncStatusPill(SyncStatus.OnThisPhone) },
-                trailing = { CtIconButton(LucideIcon.Plus, "Add objective", onAdd, style = CtIconButtonStyle.Accent) },
+                trailing = { CtIconButton(LucideIcon.Plus, "Add project", onAdd, style = CtIconButtonStyle.Accent) },
             )
         }
-        item { CtText("Wishlist", Modifier.padding(top = 24.dp, start = 4.dp, end = 4.dp), style = CragpackTheme.type.h1) }
+        item { CtText("Projects", Modifier.padding(top = 24.dp, start = 4.dp, end = 4.dp), style = CragpackTheme.type.h1) }
         val state = state ?: return@LazyColumn
         if (state.all.isEmpty()) {
             item {
-                EmptyState("No objectives yet", Modifier.fillMaxWidth().padding(top = 8.dp).height(320.dp)) {
-                    CtButton("Add objective", onAdd, icon = LucideIcon.Plus)
+                EmptyState("No projects yet", Modifier.fillMaxWidth().padding(top = 8.dp).height(320.dp)) {
+                    CtButton("Add project", onAdd, icon = LucideIcon.Plus)
                 }
             }
             return@LazyColumn
@@ -174,15 +175,26 @@ private fun ObjectiveRow(o: Objective, onClick: () -> Unit, onStar: () -> Unit) 
                 CtText("Sent", style = CragpackTheme.type.label, color = CragpackTheme.colors.accentInk)
             }
         }
+        // What beta is there, one icon per kind: videos (uploaded or YouTube), photos, topos, notes.
+        betaIcons.filter { (types, _) -> types.any { it in o.beta } }.forEach { (_, icon) ->
+            CtIcon(icon, null, size = 18.dp, tint = CragpackTheme.colors.ink2)
+        }
     }
     ListRow(
         o.name,
         onClick = onClick,
         leading = { GradeChip(text, o.grade.band) },
         trailing = { StarToggle(o.starred, onStar, if (o.starred) "Don't want ${o.name}" else "Want ${o.name}") },
-        meta = meta.takeIf { o.wanters.isNotEmpty() || o.sent },
+        meta = meta.takeIf { o.wanters.isNotEmpty() || o.sent || o.beta.isNotEmpty() },
     )
 }
+
+private val betaIcons = listOf(
+    setOf(BetaType.Video, BetaType.Youtube) to LucideIcon.Video,
+    setOf(BetaType.Photo) to LucideIcon.Image,
+    setOf(BetaType.Topo) to LucideIcon.FileText,
+    setOf(BetaType.Note) to LucideIcon.NotebookPen,
+)
 
 
 /** Pick one option of the filter being edited, or All. */

@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.theme.LocalContentColor
+import app.cragpack.designsystem.tokens.DarkColors
 import app.cragpack.designsystem.tokens.RadiusTokens
 import app.cragpack.designsystem.tokens.SizeTokens
 
@@ -100,22 +101,32 @@ fun CtSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, m
     }
 }
 
-/** The ★ "I want to try it". Filled accent star on solid when on. */
+/**
+ * The ★ "I want to try it". On: a filled accent star on solid in Sunlight; on Dark, where solid is
+ * cream and an orange star on it reads muddy, an accent disc with a dark star.
+ */
 @Composable
 fun StarToggle(on: Boolean, onToggle: () -> Unit, contentDescription: String, modifier: Modifier = Modifier) {
     val c = CragpackTheme.colors
+    val dark = c == DarkColors
     Box(
         modifier
             .size(SizeTokens.tap)
             .ctClickable(true, Role.Checkbox, CircleShape, onToggle)
             .semantics { this.contentDescription = contentDescription; selected = on }
             .clip(CircleShape)
-            .background(if (on) c.solid else c.surface2)
+            .background(if (!on) c.surface2 else if (dark) c.accent else c.solid)
             .then(if (on) Modifier else Modifier.border(1.dp, c.line, CircleShape)),
         contentAlignment = Alignment.Center,
     ) {
-        if (on) CtIcon(LucideIcon.StarFilled, null, tint = c.accent)
-        CtIcon(LucideIcon.Star, null, tint = if (on) c.onSolid else c.ink)
+        when {
+            !on -> CtIcon(LucideIcon.Star, null, tint = c.ink)
+            dark -> CtIcon(LucideIcon.StarFilled, null, tint = c.onAccent)
+            else -> {
+                CtIcon(LucideIcon.StarFilled, null, tint = c.accent)
+                CtIcon(LucideIcon.Star, null, tint = c.onSolid)
+            }
+        }
     }
 }
 

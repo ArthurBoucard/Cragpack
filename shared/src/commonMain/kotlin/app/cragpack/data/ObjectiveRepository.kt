@@ -30,9 +30,11 @@ data class Objective(
     val starred: Boolean,
     /** Someone sent or flashed it. */
     val sent: Boolean,
+    /** The kinds of beta it has, for the icons on its project row. */
+    val beta: Set<BetaType> = emptySet(),
 )
 
-/** [localPath] is relative to the app's files folder (see [MediaFiles]); null for notes and YouTube links. */
+/** [localPath] is relative to the app's files folder (see [MediaFiles]); null for notes and YouTube links. [author]'s id is who added it. */
 data class Beta(val id: String, val type: BetaType, val url: String?, val text: String?, val author: Person, val localPath: String?)
 
 data class ObjectiveDetail(val objective: Objective, val beta: List<Beta>)
@@ -95,6 +97,14 @@ class ObjectiveRepository internal constructor(
         insertBeta(objectiveId, BetaType.Note, text = text.trim())
     }
 
+    fun editNote(betaId: String, text: String) {
+        require(text.isNotBlank()) { "A note needs text" }
+        q.updateBetaText(text.trim(), now(), betaId)
+    }
+
+    /** Removes any beta item. ponytail: a removed photo or video keeps its file until storage management (Phase 3). */
+    fun deleteBeta(betaId: String) = q.deleteBeta(now(), betaId)
+
     fun addYoutube(objectiveId: String, url: String) {
         require(isYoutubeLink(url)) { "Not a YouTube link: $url" }
         insertBeta(objectiveId, BetaType.Youtube, url = url.trim())
@@ -129,7 +139,7 @@ class ObjectiveRepository internal constructor(
                     type = BetaType.entries.first { t -> t.name.equals(it.type, ignoreCase = true) },
                     url = it.url,
                     text = it.text,
-                    author = Person("", it.author_name, it.color_index.toInt()),
+                    author = Person(it.created_by, it.author_name, it.color_index.toInt()),
                     localPath = it.local_path,
                 )
             }
@@ -150,6 +160,7 @@ class ObjectiveRepository internal constructor(
         val sectorId: String?,
         val sectorName: String?,
         val sent: Boolean,
+        val betaTypes: String,
     ) {
         fun toObjective(wanters: List<Person>) = Objective(
             id = id,
@@ -161,9 +172,15 @@ class ObjectiveRepository internal constructor(
             wanters = wanters,
             starred = wanters.any { it.id == myId },
             sent = sent,
+            beta = betaTypes.split(',').mapNotNull { t -> BetaType.entries.firstOrNull { it.name.equals(t, ignoreCase = true) } }.toSet(),
         )
     }
 }
 
 fun isYoutubeLink(url: String): Boolean =
     Regex("""^(https?://)?(www\.|m\.)?(youtube\.com|youtu\.be)/\S+$""").matches(url.trim())
+
+/** The preview image of a YouTube link (watch?v=, youtu.be/, shorts/, embed/, live/), or null if it has no video id. */
+fun youtubeThumbnail(url: String): String? =
+    Regex("""(?:[?&]v=|youtu\.be/|/shorts/|/embed/|/live/)([\w-]{11})""").find(url)?.groupValues?.get(1)
+        ?.let { "https://img.youtube.com/vi/$it/mqdefault.jpg" } // 16:9, no letterbox bars (hqdefault has them)

@@ -47,7 +47,7 @@ Supabase keys go in `local.properties` (never committed): `supabase.url=…` and
 
 ## Rules
 
-- **Dependencies point inward:** `feature -> domain <- data`. Screens read the local database only, never the network.
+- **Dependencies point inward:** `feature -> domain <- data`. Screens read the local database only, never the network. One exception: YouTube preview images, which are online only like the videos themselves (D9).
 - **Only design-system pieces in screens.** Need a new colour, size or text style? Add it to `design/tokens/cragpack.tokens.json` first; `:designsystem:generateTokens` turns it into Kotlin on build.
 - **Grades come from `design/data/grades.json`** via the generated `GradeTable`. Never hard-code a grade list.
 - **New icon:** drop the Lucide SVG in `design/icons/svg/`, run `node tools/lucide-to-vector.mjs`.
