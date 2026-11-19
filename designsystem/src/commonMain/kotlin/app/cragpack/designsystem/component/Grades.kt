@@ -64,15 +64,17 @@ fun GradeTag(text: String, band: Int, modifier: Modifier = Modifier) =
 /**
  * `.gpick` — every grade, two taps away: a row of numbers (1…9, in band colours), then that number's
  * grades as 4 columns of pills. The selected grade gets an outline ring. [grades] are (text, band) in sort order.
+ * V grades (VB, V0- … V17) don't group by first digit (V1 and V10 would share a row), so they show as one grid.
  */
 @Composable
 fun GradePicker(grades: List<Pair<String, Int>>, selected: String?, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     val ink = CragpackTheme.colors.ink
-    val groups = remember(grades) { grades.groupBy { (text, _) -> numberOf(text) } }
-    var open by rememberSaveable(grades) { mutableStateOf(selected?.let(::numberOf) ?: groups.keys.firstOrNull { it == "6" } ?: groups.keys.first()) }
-    LaunchedEffect(selected) { if (selected != null) open = numberOf(selected) }
+    val flat = remember(grades) { grades.any { (text, _) -> !text.first().isDigit() } }
+    val groups = remember(grades) { if (flat) mapOf("" to grades) else grades.groupBy { (text, _) -> numberOf(text) } }
+    var open by rememberSaveable(grades) { mutableStateOf(if (flat) "" else selected?.let(::numberOf) ?: groups.keys.firstOrNull { it == "6" } ?: groups.keys.first()) }
+    LaunchedEffect(selected) { if (selected != null && !flat) open = numberOf(selected) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (!flat) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             groups.forEach { (number, list) ->
                 val on = number == open
                 GradeShape(

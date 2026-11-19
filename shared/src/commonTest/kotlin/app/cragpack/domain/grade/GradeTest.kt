@@ -41,6 +41,18 @@ class GradeTest {
     }
 
     @Test
+    fun lowGradesHaveMinusAndPlus() {
+        assertEquals(
+            listOf("1", "1+", "2-", "2", "2+", "3-", "3", "3+", "4-", "4", "4+", "5-", "5", "5+", "6A"),
+            Grade.all(Font).take(15).map { it.value },
+        )
+        assertEquals(listOf("VB", "V0-", "V0", "V0+", "V1"), Grade.all(V).take(5).map { it.value })
+        assertEquals("V0-", Grade(Font, "4-").display(GradeDisplay.V))
+        assertTrue(Grade.all(Font).zipWithNext().all { (a, b) -> a.sortIndex < b.sortIndex })
+        assertTrue(Grade.all(V).zipWithNext().all { (a, b) -> a.sortIndex < b.sortIndex })
+    }
+
+    @Test
     fun rejectsUnknownGrades() {
         assertNull(Grade.of(Font, "7D"))
         assertNull(Grade.of(Font, "7a")) // French spelling isn't a Font grade

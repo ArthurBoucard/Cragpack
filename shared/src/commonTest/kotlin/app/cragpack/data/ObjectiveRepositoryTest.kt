@@ -59,6 +59,41 @@ class ObjectiveRepositoryTest {
     }
 
     @Test
+    fun projectRowKnowsWhichBetaItHas() = runTest {
+        val id = repo.add(tripId, "La Joker", ClimbStyle.Boulder, font7a, null)
+        assertEquals(emptySet(), repo.observeWishlist(tripId).first().single().beta)
+        repo.addNote(id, "Heel hook")
+        repo.addYoutube(id, "youtu.be/9xQ2abc")
+        repo.addYoutube(id, "youtu.be/9xQ2abd")
+        assertEquals(setOf(BetaType.Note, BetaType.Youtube), repo.observeWishlist(tripId).first().single().beta)
+    }
+
+    @Test
+    fun noteCanBeEditedAndRemoved() = runTest {
+        val id = repo.add(tripId, "La Joker", ClimbStyle.Boulder, font7a, null)
+        repo.addNote(id, "Heel hook")
+        val note = repo.observeObjective(id).first()!!.beta.single()
+        assertEquals(graph.myId, note.author.id)
+
+        repo.editNote(note.id, " Toe hook ")
+        assertEquals("Toe hook", repo.observeObjective(id).first()!!.beta.single().text)
+        assertFailsWith<IllegalArgumentException> { repo.editNote(note.id, " ") }
+
+        repo.deleteBeta(note.id)
+        assertEquals(emptyList(), repo.observeObjective(id).first()!!.beta)
+        assertEquals(emptySet(), repo.observeWishlist(tripId).first().single().beta)
+    }
+
+    @Test
+    fun youtubeLinksGiveTheirThumbnail() {
+        val img = "https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg"
+        assertEquals(img, youtubeThumbnail("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42"))
+        assertEquals(img, youtubeThumbnail("youtu.be/dQw4w9WgXcQ?si=x"))
+        assertEquals(img, youtubeThumbnail("https://youtube.com/shorts/dQw4w9WgXcQ"))
+        assertNull(youtubeThumbnail("https://www.youtube.com/@cragpack"))
+    }
+
+    @Test
     fun deletedObjectiveDisappears() = runTest {
         val id = repo.add(tripId, "La Joker", ClimbStyle.Boulder, font7a, null)
         repo.delete(id)

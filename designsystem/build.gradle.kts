@@ -23,9 +23,14 @@ kotlin {
             api(libs.kotlinx.datetime)
             implementation(libs.compose.resources)
             implementation(libs.coil.compose)
+            implementation(libs.coil.network) // YouTube previews: the only images from the web
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
+            implementation(libs.ktor.client.okhttp)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
         }
     }
 }

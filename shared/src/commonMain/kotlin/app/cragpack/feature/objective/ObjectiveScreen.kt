@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -24,7 +24,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -41,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.withContext
 import app.cragpack.data.MediaFiles
 import app.cragpack.data.isYoutubeLink
+import app.cragpack.data.youtubeThumbnail
 import app.cragpack.designsystem.component.AddBetaThumb
 import app.cragpack.designsystem.component.Avatar
 import app.cragpack.designsystem.component.AvatarSize
@@ -59,7 +59,8 @@ import app.cragpack.designsystem.component.CtText
 import app.cragpack.designsystem.component.CtTextField
 import app.cragpack.designsystem.component.GradeChip
 import app.cragpack.designsystem.component.GradeChipSize
-import app.cragpack.designsystem.component.ImageViewer
+import app.cragpack.designsystem.component.MediaItem
+import app.cragpack.designsystem.component.MediaViewer
 import app.cragpack.designsystem.component.LightStatusBarIcons
 import app.cragpack.designsystem.component.PhotoSurface
 import app.cragpack.designsystem.component.StarToggle
@@ -78,6 +79,7 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -86,6 +88,12 @@ class ObjectiveViewModel(private val graph: AppGraph, private val id: String) : 
     val state = graph.objectives.observeObjective(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val logs = graph.logs.observeForObjective(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val myId = graph.myId
+
+    /** Each video's first frame (absolute path) by beta id, made the first time the video is shown. */
+    val frames = state.map { detail ->
+        detail?.beta.orEmpty().filter { it.type == BetaType.Video }
+            .mapNotNull { b -> b.localPath?.let { MediaFiles.videoFrame(it) }?.let { b.id to it } }.toMap()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** The Undo toast's message after a log action. */
     var toast by mutableStateOf<String?>(null)
@@ -108,6 +116,8 @@ class ObjectiveViewModel(private val graph: AppGraph, private val id: String) : 
     fun setStarred(on: Boolean) = write { setStarred(id, on) }
     fun delete() = write { delete(id) }
     fun addNote(text: String) = write { addNote(id, text) }
+    fun editNote(betaId: String, text: String) = write { editNote(betaId, text) }
+    fun deleteBeta(betaId: String) = write { deleteBeta(betaId) }
     fun addYoutube(url: String) = write { addYoutube(id, url) }
 
     fun addFile(file: PlatformFile, type: BetaType) = viewModelScope.launch(Dispatchers.IO) {
@@ -128,14 +138,19 @@ private enum class Sheet { AddBeta, Note, More }
 fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
     val ui by vm.state.collectAsStateWithLifecycle()
     val logs by vm.logs.collectAsStateWithLifecycle()
+    val frames by vm.frames.collectAsStateWithLifecycle()
     var sheet by rememberSaveable { mutableStateOf<Sheet?>(null) }
-    var viewing by rememberSaveable { mutableStateOf<String?>(null) }
+    /** The media viewer's page while it's open. */
+    var viewing by rememberSaveable { mutableStateOf<Int?>(null) }
     var link by rememberSaveable { mutableStateOf("") }
     var note by rememberSaveable { mutableStateOf("") }
+    /** The note being edited in the Note sheet; null when adding one. */
+    var editingNote by rememberSaveable { mutableStateOf<String?>(null) }
+    val media = ui?.beta.orEmpty().filter { it.type != BetaType.Note }
+    val mediaItems = media.map { it.toMediaItem(frames[it.id]) }
     var pickingType by rememberSaveable { mutableStateOf(BetaType.Photo) }
     val images = rememberFilePickerLauncher(FileKitType.Image) { file -> if (file != null) vm.addFile(file, pickingType) }
     val videos = rememberFilePickerLauncher(FileKitType.Video) { file -> if (file != null) vm.addFile(file, BetaType.Video) }
-    val uri = LocalUriHandler.current
 
     val mine = logs.filter { it.person.id == vm.myId }.map { it.style }
     val attempts = mine.count { it == LogStyle.Attempt }
@@ -162,18 +177,24 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
                     CtOption("Video", LucideIcon.Video, { sheet = null; videos.launch() }, Modifier.weight(1f))
                     CtOption("Photo", LucideIcon.Image, { sheet = null; pickingType = BetaType.Photo; images.launch() }, Modifier.weight(1f))
                     CtOption("Topo", LucideIcon.FileText, { sheet = null; pickingType = BetaType.Topo; images.launch() }, Modifier.weight(1f))
-                    CtOption("Note", LucideIcon.NotebookPen, { sheet = Sheet.Note }, Modifier.weight(1f))
+                    CtOption("Note", LucideIcon.NotebookPen, { editingNote = null; note = ""; sheet = Sheet.Note }, Modifier.weight(1f))
                 }
             }
-            CtBottomSheet(sheet == Sheet.Note, "Add note", { sheet = null }) {
+            val editing = editingNote
+            CtBottomSheet(sheet == Sheet.Note, if (editing == null) "Add note" else "Edit note", { sheet = null }) {
                 CtTextField(note, { note = it }, "Note", placeholder = "e.g. Left heel hook, then cross to the sloper.", area = true)
-                CtButton("Add note", { vm.addNote(note); note = ""; sheet = null }, size = CtButtonSize.Wide, enabled = note.isNotBlank())
+                if (editing == null) {
+                    CtButton("Add note", { vm.addNote(note); note = ""; sheet = null }, size = CtButtonSize.Wide, enabled = note.isNotBlank())
+                } else {
+                    CtButton("Save note", { vm.editNote(editing, note); note = ""; sheet = null }, size = CtButtonSize.Wide, enabled = note.isNotBlank())
+                    CtButton("Delete note", { vm.deleteBeta(editing); note = ""; sheet = null }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide)
+                }
             }
             CtBottomSheet(sheet == Sheet.More, ui?.objective?.name.orEmpty(), { sheet = null }) {
                 CtButton("Edit", { sheet = null; onEdit() }, style = CtButtonStyle.Ghost, size = CtButtonSize.Wide)
-                CtButton("Delete objective", { sheet = null; vm.delete(); onBack() }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide)
+                CtButton("Delete project", { sheet = null; vm.delete(); onBack() }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide)
             }
-            ImageViewer(viewing?.let(MediaFiles::absolute)) { viewing = null }
+            MediaViewer(mediaItems, viewing) { viewing = null }
         },
     ) { bottom ->
         val detail = ui ?: return@CtScreen
@@ -201,12 +222,30 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
                     if (o.sector != null) CtChip(o.sector.name, selected = false, onClick = null, Modifier.padding(top = 16.dp), icon = LucideIcon.MapPin)
                 }
             }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // The count says how much of the strip is off screen.
+            Row(Modifier.padding(horizontal = SizeTokens.edge + 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                CtText("Beta", style = CragpackTheme.type.h3)
+                if (media.isNotEmpty()) CtText("${media.size}", style = CragpackTheme.type.h3, color = CragpackTheme.colors.ink2)
+            }
             LazyRow(contentPadding = PaddingValues(horizontal = SizeTokens.edge), horizontalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
                 item { AddBetaThumb({ sheet = Sheet.AddBeta }) }
-                items(detail.beta.filter { it.type != BetaType.Note }, key = { it.id }) { b -> Thumb(b, onView = { viewing = it }, onLink = { uri.openUri(it) }) }
+                itemsIndexed(media, key = { _, b -> b.id }) { i, b ->
+                    val item = mediaItems[i]
+                    BetaThumb(
+                        item.label,
+                        onClick = { viewing = i },
+                        imagePath = item.image,
+                        icon = if (b.type == BetaType.Video || b.type == BetaType.Youtube) LucideIcon.Play else null,
+                        onlineOnly = b.type == BetaType.Youtube,
+                    )
+                }
+            }
             }
             Column(Modifier.padding(horizontal = SizeTokens.edge), verticalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
-                detail.beta.filter { it.type == BetaType.Note }.forEach { NoteCard(it) }
+                detail.beta.filter { it.type == BetaType.Note }.forEach { n ->
+                    NoteCard(n, onEdit = if (n.author.id == vm.myId) ({ editingNote = n.id; note = n.text.orEmpty(); sheet = Sheet.Note }) else null)
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
                     PeopleTile("Want", o.wanters.map { it.name to it.colorIndex }, Modifier.weight(1f)) {
                         StarToggle(o.starred, { vm.setStarred(!o.starred) }, if (o.starred) "Don't want it" else "Want it")
@@ -224,30 +263,27 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
     }
 }
 
-@Composable
-private fun Thumb(b: Beta, onView: (String) -> Unit, onLink: (String) -> Unit) = when (b.type) {
-    BetaType.Photo, BetaType.Topo -> {
-        val path = b.localPath
-        BetaThumb(
-            if (b.type == BetaType.Topo) "Topo" else "Photo",
-            onClick = path?.let { { onView(it) } },
-            imagePath = path?.let(MediaFiles::absolute),
-        )
+/** A beta item as the media viewer and the strip show it. [frame] is a video's first frame. */
+private fun Beta.toMediaItem(frame: String?): MediaItem {
+    val path = localPath?.let(MediaFiles::absolute)
+    val by = author.name.ifBlank { null }
+    return when (type) {
+        BetaType.Video -> MediaItem("Video", frame, video = path, author = by, authorColor = author.colorIndex)
+        BetaType.Youtube -> {
+            val u = url.orEmpty()
+            MediaItem("YouTube", youtubeThumbnail(u), link = if (u.startsWith("http")) u else "https://$u", author = by, authorColor = author.colorIndex)
+        }
+        else -> MediaItem(if (type == BetaType.Topo) "Topo" else "Photo", path, author = by, authorColor = author.colorIndex)
     }
-    // ponytail: videos play in the media viewer (21, Phase 3); until then the thumb only shows they're there.
-    BetaType.Video -> BetaThumb("Video", onClick = null, icon = LucideIcon.Play)
-    BetaType.Youtube -> {
-        val url = b.url.orEmpty()
-        BetaThumb("YouTube", onClick = { onLink(if (url.startsWith("http")) url else "https://$url") }, icon = LucideIcon.Play, onlineOnly = true)
-    }
-    BetaType.Note -> Unit
 }
 
+/** A climber's note. Your own notes open the Note sheet to edit or delete them. */
 @Composable
-private fun NoteCard(b: Beta) = CtCard(Modifier.fillMaxWidth(), radius = RadiusTokens.lg) {
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun NoteCard(b: Beta, onEdit: (() -> Unit)?) = CtCard(Modifier.fillMaxWidth(), radius = RadiusTokens.lg, onClick = onEdit) {
+    Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Avatar(b.author.name, b.author.colorIndex, size = AvatarSize.Lg)
         CtText(b.text.orEmpty(), Modifier.weight(1f))
+        if (onEdit != null) CtIcon(LucideIcon.EllipsisVertical, "Edit note", size = 20.dp, tint = CragpackTheme.colors.ink2)
     }
 }
 

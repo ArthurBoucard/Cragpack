@@ -1,6 +1,31 @@
 package app.cragpack.designsystem.component
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -62,21 +87,77 @@ private fun Dock(modifier: Modifier = Modifier, content: @Composable RowScope.()
     }
 }
 
-/** `.dock.cta` — the screen's one primary action: accent icon on the left, centred label. */
+/**
+ * `.dock.cta` — the screen's one primary action, as slide-to-confirm: drag the accent knob to the far
+ * end of the bar. Let go early and it springs back; a tap nudges it to show it slides. Screen readers
+ * get a plain button.
+ */
 @Composable
 fun CtaDock(label: String, icon: LucideIcon, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val c = CragpackTheme.colors
-    Dock(modifier.ctClickable(enabled, Role.Button, RoundedCornerShape(RadiusTokens.lg), onClick)) {
-        Box(Modifier.size(SizeTokens.tap).clip(CircleShape).background(c.accent), contentAlignment = Alignment.Center) {
-            CtIcon(icon, null, tint = c.onAccent)
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+    val nudge = with(LocalDensity.current) { 28.dp.toPx() }
+    var x by remember { mutableFloatStateOf(0f) }
+    var travel by remember { mutableFloatStateOf(0f) }
+    var busy by remember { mutableStateOf(false) }
+    val progress = if (travel > 0f) x / travel else 0f
+    fun slideTo(target: Float, after: suspend () -> Unit = {}) = scope.launch {
+        busy = true
+        animate(x, target, animationSpec = spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow)) { v, _ -> x = v }
+        after()
+        busy = false
+    }
+    fun confirm() = slideTo(travel) {
+        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+        onClick()
+        delay(700) // the screen usually leaves; if it stays, the knob comes home
+        animate(x, 0f) { v, _ -> x = v }
+    }
+    Dock(
+        modifier
+            .alpha(if (enabled) 1f else 0.4f)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                onClick(label) { if (enabled) onClick(); enabled }
+                if (!enabled) disabled()
+            }
+            .draggable(
+                rememberDraggableState { d -> if (!busy) x = (x + d).coerceIn(0f, travel) },
+                Orientation.Horizontal,
+                enabled = enabled,
+                onDragStopped = { if (x >= travel * 0.85f) confirm() else slideTo(0f) },
+            )
+            .pointerInput(enabled) { if (enabled) detectTapGestures { if (!busy) slideTo(nudge) { animate(x, 0f) { v, _ -> x = v } } } },
+    ) {
+        Box(Modifier.weight(1f).fillMaxHeight().onSizeChanged { travel = (it.width - it.height).toFloat().coerceAtLeast(0f) }) {
+            val knob = with(LocalDensity.current) { x.toDp() } + SizeTokens.tap
+            // The trail the knob leaves: shows how far there is to go.
+            Box(Modifier.align(Alignment.CenterStart).width(knob).height(SizeTokens.tap).clip(CircleShape).background(c.accent.copy(alpha = 0.3f)))
+            CtText(
+                label,
+                Modifier.align(Alignment.Center).padding(horizontal = SizeTokens.tap).graphicsLayer { alpha = 1f - progress },
+                style = CragpackTheme.type.body.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+            CtIcon(
+                LucideIcon.ChevronRight, null,
+                Modifier.align(Alignment.CenterEnd).padding(end = 14.dp).graphicsLayer { alpha = 0.5f * (1f - progress) },
+                size = 20.dp,
+            )
+            Box(
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .offset { IntOffset(x.roundToInt(), 0) }
+                    .size(SizeTokens.tap)
+                    .clip(CircleShape)
+                    .background(c.accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                CtIcon(icon, null, tint = c.onAccent)
+            }
         }
-        CtText(
-            label,
-            Modifier.weight(1f).padding(end = SizeTokens.tap),
-            style = CragpackTheme.type.body.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-        )
     }
 }
 
@@ -143,7 +224,7 @@ fun BoxScope.CtToast(message: String?, actionLabel: String, onAction: () -> Unit
     }
 }
 
-/** `.dock` — the 5-tab bar inside a trip. The current tab is filled with bg plus an accent dot. */
+/** `.dock` — the 5-tab bar inside a trip. The current tab is an accent pill, like the chosen log style. */
 @Composable
 fun TabDock(tabs: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val c = CragpackTheme.colors
@@ -157,12 +238,11 @@ fun TabDock(tabs: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier
                     .height(SizeTokens.tap)
                     .semantics { this.selected = on }
                     .ctClickable(true, Role.Tab, shape) { onSelect(i) }
-                    .then(if (on) Modifier.clip(shape).background(c.bg).padding(horizontal = 16.dp) else Modifier),
+                    .then(if (on) Modifier.clip(shape).background(c.accent).padding(horizontal = 18.dp) else Modifier),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.Center,
             ) {
-                if (on) Box(Modifier.size(8.dp).clip(CircleShape).background(c.accent))
-                CtText(tab, style = style, color = if (on) c.ink else c.onSolid, maxLines = 1)
+                CtText(tab, style = style, color = if (on) c.onAccent else c.onSolid, maxLines = 1)
             }
         }
     }

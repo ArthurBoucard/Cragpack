@@ -75,7 +75,7 @@ class TripViewModel(graph: AppGraph, tripId: String) : ViewModel() {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
-private val tabs = listOf("Trip", "Wishlist", "Plan", "Gear", "Log")
+private val tabs = listOf("Trip", "Projects", "Plan", "Gear", "Log")
 
 /** Inside a trip: the 5-tab dock. Screen 02 is the Trip tab. */
 @Composable
@@ -158,7 +158,7 @@ private fun Overview(ui: TripUi, bottom: androidx.compose.ui.unit.Dp, onBack: ()
                 }
                 StatTile(label, value, Modifier.weight(1f), onClick = { onTab(2) })
                 StatTile(
-                    "Wishlist", "${stats.objectives}", Modifier.weight(1f),
+                    "Projects", "${stats.objectives}", Modifier.weight(1f),
                     unit = if (stats.objectives > 0) "· ${stats.unplanned} unplanned" else null,
                     onClick = { onTab(1) },
                 )

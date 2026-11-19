@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- YouTube previews; sync with Supabase arrives in Phase 2. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:name=".CragpackApp"
         android:label="Cragpack"

@@ -96,7 +96,7 @@ fun ObjectiveFormScreen(vm: ObjectiveFormViewModel, onClose: () -> Unit, onSaved
     CtScreen(
         dock = {
             CtaDock(
-                if (vm.editing) "Save" else "Add to wishlist",
+                if (vm.editing) "Save" else "Add to projects",
                 if (vm.editing) LucideIcon.Check else LucideIcon.Plus,
                 enabled = form.canSave,
                 onClick = { scope.launch { onSaved(vm.save()) } },
@@ -110,7 +110,7 @@ fun ObjectiveFormScreen(vm: ObjectiveFormViewModel, onClose: () -> Unit, onSaved
         ) {
             TopBar(
                 leading = { CtIconButton(LucideIcon.X, "Close", onClose) },
-                center = { CtText(if (vm.editing) "Edit objective" else "Add objective", style = CragpackTheme.type.title) },
+                center = { CtText(if (vm.editing) "Edit project" else "Add project", style = CragpackTheme.type.title) },
             )
             CtTextField(
                 form.name, { vm.form = form.copy(name = it) }, "Name", placeholder = "e.g. La Marie-Rose",
