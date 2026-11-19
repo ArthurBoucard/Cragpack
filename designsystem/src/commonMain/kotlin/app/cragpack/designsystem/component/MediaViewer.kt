@@ -44,29 +44,33 @@ import coil3.compose.AsyncImage
  */
 @Immutable
 data class MediaItem(
+    val id: String,
     val label: String,
     val image: String?,
     val video: String? = null,
     val link: String? = null,
     val author: String? = null,
     val authorColor: Int = 1,
+    /** Shows the viewer's Delete button (your own beta). */
+    val deletable: Boolean = false,
 )
 
 /**
  * Media viewer (21): every photo, topo and video of a climb, swiped through full screen, always dark,
  * with the position ("2/5") top right. Shows while [start] (the page to open on) is set.
- * Closes with ✕ or system back. Place it in [CtScreen]'s overlay slot.
+ * Closes with ✕ or system back. Place it in [CtScreen]'s overlay slot. [onDelete] gets the item a
+ * [MediaItem.deletable] page's trash button was tapped on; the caller confirms and removes it.
  * ponytail: videos use the platform player's own controls; the design's scrubber can replace them later.
  */
 @Composable
-fun BoxScope.MediaViewer(items: List<MediaItem>, start: Int?, onDismiss: () -> Unit) {
+fun BoxScope.MediaViewer(items: List<MediaItem>, start: Int?, onDismiss: () -> Unit, onDelete: (MediaItem) -> Unit = {}) {
     CtBackHandler(enabled = start != null, onBack = onDismiss)
     if (start == null || items.isEmpty()) return
     val pager = rememberPagerState(start.coerceIn(items.indices)) { items.size }
     DarkContent {
         // Swallows taps so nothing behind the viewer reacts.
         Box(Modifier.matchParentSize().background(ColorTokens.photoScrim.copy(alpha = 1f)).pointerInput(Unit) { detectTapGestures {} }) {
-            HorizontalPager(pager, Modifier.fillMaxSize()) { page -> MediaPage(items[page]) }
+            HorizontalPager(pager, Modifier.fillMaxSize(), key = { items[it].id }) { page -> MediaPage(items[page]) }
             val item = items[pager.currentPage.coerceIn(items.indices)]
             TopBar(
                 Modifier.padding(horizontal = SizeTokens.edge),
@@ -89,6 +93,12 @@ fun BoxScope.MediaViewer(items: List<MediaItem>, start: Int?, onDismiss: () -> U
                     Avatar(item.author, item.authorColor)
                     CtText(item.author, style = CragpackTheme.type.rowName, maxLines = 1)
                 }
+            }
+            if (item.deletable) {
+                CtIconButton(
+                    LucideIcon.Trash2, "Delete", { onDelete(item) },
+                    Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(SizeTokens.edge),
+                )
             }
         }
     }
