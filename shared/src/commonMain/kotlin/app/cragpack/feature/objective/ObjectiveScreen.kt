@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -143,12 +144,14 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
     var sheet by rememberSaveable { mutableStateOf<Sheet?>(null) }
     /** The media viewer's page while it's open. */
     var viewing by rememberSaveable { mutableStateOf<Int?>(null) }
+    /** The photo or video the Delete dialog asks about. */
+    var deleting by remember { mutableStateOf<MediaItem?>(null) }
     var link by rememberSaveable { mutableStateOf("") }
     var note by rememberSaveable { mutableStateOf("") }
     /** The note being edited in the Note sheet; null when adding one. */
     var editingNote by rememberSaveable { mutableStateOf<String?>(null) }
     val media = ui?.beta.orEmpty().filter { it.type != BetaType.Note }
-    val mediaItems = media.map { it.toMediaItem(frames[it.id]) }
+    val mediaItems = media.map { it.toMediaItem(frames[it.id], mine = it.author.id == vm.myId) }
     var pickingType by rememberSaveable { mutableStateOf(BetaType.Photo) }
     val images = rememberFilePickerLauncher(FileKitType.Image) { file -> if (file != null) vm.addFile(file, pickingType) }
     val videos = rememberFilePickerLauncher(FileKitType.Video) { file -> if (file != null) vm.addFile(file, BetaType.Video) }
@@ -201,7 +204,18 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
                 CtButton("Edit", { sheet = null; onEdit() }, style = CtButtonStyle.Ghost, size = CtButtonSize.Wide)
                 CtButton("Delete project", { sheet = null; vm.delete(); onBack() }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide)
             }
-            MediaViewer(mediaItems, viewing) { viewing = null }
+            MediaViewer(mediaItems, viewing, onDismiss = { viewing = null }, onDelete = { deleting = it })
+            // After the viewer so it shows on top of it. No Undo here either, so it asks first.
+            val d = deleting
+            CtConfirmDialog(
+                d != null, "Delete this ${if (d?.link != null) "YouTube link" else d?.label?.lowercase()}?", "It's gone for everyone on the trip.", "Delete",
+                onConfirm = {
+                    if (d != null) vm.deleteBeta(d.id)
+                    if (media.size <= 1) viewing = null
+                    deleting = null
+                },
+                onDismiss = { deleting = null },
+            )
         },
     ) { bottom ->
         val detail = ui ?: return@CtScreen
@@ -270,17 +284,17 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
     }
 }
 
-/** A beta item as the media viewer and the strip show it. [frame] is a video's first frame. */
-private fun Beta.toMediaItem(frame: String?): MediaItem {
+/** A beta item as the media viewer and the strip show it. [frame] is a video's first frame; [mine] makes it deletable. */
+private fun Beta.toMediaItem(frame: String?, mine: Boolean): MediaItem {
     val path = localPath?.let(MediaFiles::absolute)
     val by = author.name.ifBlank { null }
     return when (type) {
-        BetaType.Video -> MediaItem("Video", frame, video = path, author = by, authorColor = author.colorIndex)
+        BetaType.Video -> MediaItem(id, "Video", frame, video = path, author = by, authorColor = author.colorIndex, deletable = mine)
         BetaType.Youtube -> {
             val u = url.orEmpty()
-            MediaItem("YouTube", youtubeThumbnail(u), link = if (u.startsWith("http")) u else "https://$u", author = by, authorColor = author.colorIndex)
+            MediaItem(id, "YouTube", youtubeThumbnail(u), link = if (u.startsWith("http")) u else "https://$u", author = by, authorColor = author.colorIndex, deletable = mine)
         }
-        else -> MediaItem(if (type == BetaType.Topo) "Topo" else "Photo", path, author = by, authorColor = author.colorIndex)
+        else -> MediaItem(id, if (type == BetaType.Topo) "Topo" else "Photo", path, author = by, authorColor = author.colorIndex, deletable = mine)
     }
 }
 
