@@ -52,6 +52,7 @@ import app.cragpack.designsystem.component.CtButtonSize
 import app.cragpack.designsystem.component.CtButtonStyle
 import app.cragpack.designsystem.component.CtCard
 import app.cragpack.designsystem.component.CtChip
+import app.cragpack.designsystem.component.CtConfirmDialog
 import app.cragpack.designsystem.component.CtIconButton
 import app.cragpack.designsystem.component.CtOption
 import app.cragpack.designsystem.component.CtScreen
@@ -131,7 +132,7 @@ class ObjectiveViewModel(private val graph: AppGraph, private val id: String) : 
         viewModelScope.launch(Dispatchers.IO) { graph.objectives.block() }
 }
 
-private enum class Sheet { AddBeta, Note, More }
+private enum class Sheet { AddBeta, Note, DeleteNote, More }
 
 /** Boulder / route detail (05) and the Add beta sheet (20). */
 @Composable
@@ -187,9 +188,15 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
                     CtButton("Add note", { vm.addNote(note); note = ""; sheet = null }, size = CtButtonSize.Wide, enabled = note.isNotBlank())
                 } else {
                     CtButton("Save note", { vm.editNote(editing, note); note = ""; sheet = null }, size = CtButtonSize.Wide, enabled = note.isNotBlank())
-                    CtButton("Delete note", { vm.deleteBeta(editing); note = ""; sheet = null }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide)
+                    CtButton("Delete note", { sheet = Sheet.DeleteNote }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide)
                 }
             }
+            // A note has no Undo, so deleting it asks first (design rule 11).
+            CtConfirmDialog(
+                sheet == Sheet.DeleteNote && editing != null, "Delete this note?", "It's gone for everyone on the trip.", "Delete",
+                onConfirm = { editing?.let(vm::deleteBeta); note = ""; sheet = null },
+                onDismiss = { sheet = Sheet.Note },
+            )
             CtBottomSheet(sheet == Sheet.More, ui?.objective?.name.orEmpty(), { sheet = null }) {
                 CtButton("Edit", { sheet = null; onEdit() }, style = CtButtonStyle.Ghost, size = CtButtonSize.Wide)
                 CtButton("Delete project", { sheet = null; vm.delete(); onBack() }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide)

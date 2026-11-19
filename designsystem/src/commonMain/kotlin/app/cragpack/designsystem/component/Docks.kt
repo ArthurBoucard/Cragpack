@@ -126,7 +126,7 @@ fun CtaDock(label: String, icon: LucideIcon, onClick: () -> Unit, modifier: Modi
                 rememberDraggableState { d -> if (!busy) x = (x + d).coerceIn(0f, travel) },
                 Orientation.Horizontal,
                 enabled = enabled,
-                onDragStopped = { if (x >= travel * 0.85f) confirm() else slideTo(0f) },
+                onDragStopped = { if (!busy) { if (x >= travel * 0.85f) confirm() else slideTo(0f) } },
             )
             .pointerInput(enabled) { if (enabled) detectTapGestures { if (!busy) slideTo(nudge) { animate(x, 0f) { v, _ -> x = v } } } },
     ) {

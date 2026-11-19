@@ -2,7 +2,7 @@ package app.cragpack.designsystem.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -64,7 +65,7 @@ fun BoxScope.MediaViewer(items: List<MediaItem>, start: Int?, onDismiss: () -> U
     val pager = rememberPagerState(start.coerceIn(items.indices)) { items.size }
     DarkContent {
         // Swallows taps so nothing behind the viewer reacts.
-        Box(Modifier.matchParentSize().background(ColorTokens.photoScrim.copy(alpha = 1f)).clickable(null, indication = null) {}) {
+        Box(Modifier.matchParentSize().background(ColorTokens.photoScrim.copy(alpha = 1f)).pointerInput(Unit) { detectTapGestures {} }) {
             HorizontalPager(pager, Modifier.fillMaxSize()) { page -> MediaPage(items[page]) }
             val item = items[pager.currentPage.coerceIn(items.indices)]
             TopBar(
