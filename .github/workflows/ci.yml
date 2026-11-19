@@ -1,9 +1,11 @@
 name: CI
 
 on:
+  # Only what lands on main (the APK comes from main pushes); plain branch pushes don't run it.
   push:
     branches: [main]
   pull_request:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
