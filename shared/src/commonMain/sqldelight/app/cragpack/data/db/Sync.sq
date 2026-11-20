@@ -22,6 +22,11 @@ CREATE TABLE sync_state (
 countPending:
 SELECT count(*) FROM (SELECT DISTINCT tbl, row_key FROM outbox);
 
+-- What a push can send now: a move held by an open conflict (19) waits for the climber instead.
+countSendable:
+SELECT count(*) FROM (SELECT DISTINCT tbl, row_key FROM outbox
+    WHERE tbl <> 'plan_item' OR row_key NOT IN (SELECT objective_id FROM plan_conflict));
+
 selectOutbox:
 SELECT id, tbl, row_key, col FROM outbox;
 
@@ -64,7 +69,17 @@ selectPlanBase:
 SELECT objective_id, day_id FROM plan_base WHERE objective_id = ?;
 
 clearPlanBase:
-DELETE FROM plan_base WHERE objective_id IN ?;
+DELETE FROM plan_base WHERE objective_id = ?;
+
+-- Pushed while I moved it again: the move the server has now is the new base.
+setPlanBase:
+UPDATE plan_base SET day_id = ? WHERE objective_id = ?;
+
+dropConflict:
+DELETE FROM plan_conflict WHERE objective_id = ?;
+
+dropOutboxRow:
+DELETE FROM outbox WHERE tbl = ? AND row_key = ?;
 
 putConflict:
 INSERT OR REPLACE INTO plan_conflict (objective_id, day_id, order_key, updated_at, updated_by) VALUES (?, ?, ?, ?, ?);
@@ -87,7 +102,7 @@ LEFT JOIN day td ON td.id = c.day_id
 LEFT JOIN sector ts ON ts.id = td.sector_id
 LEFT JOIN user u ON u.id = c.updated_by
 LEFT JOIN trip_member m ON m.trip_id = o.trip_id AND m.user_id = c.updated_by
-WHERE o.trip_id = ?
+WHERE o.trip_id = ? AND o.deleted_at IS NULL
 ORDER BY o.name;
 
 -- Keep mine: their move becomes the base, so my move simply goes up next and wins (last write wins).

@@ -3,6 +3,9 @@
 -- The one real conflict: two climbers move the same objective to different days while offline. The first move
 -- to reach the server wins; the phone of the second sees Sync conflict (19), which names who moved it and when.
 -- The server records who: the phone can't be trusted to say.
+-- ponytail: "first to reach the server" is checked on the phone (each sync pulls before it pushes); a move landing in
+-- the second between someone's pull and push is overwritten without a sheet. A server-side check of the base day
+-- would close it if it ever shows up.
 
 alter table plan_item add column if not exists updated_by uuid;
 

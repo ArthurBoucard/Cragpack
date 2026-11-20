@@ -60,13 +60,17 @@ class SyncRepository internal constructor(
      * The outbox is filled by triggers SQLDelight doesn't know about, so it never hears of those writes:
      * count again whenever any synced table (or the outbox itself) changes.
      */
-    private val pending: Flow<Int> = callbackFlow {
+    private val changes: Flow<Unit> = callbackFlow {
         val listener = Query.Listener { trySend(Unit) }
-        val tables = syncTables.map { it.name }.toTypedArray() + "outbox"
+        val tables = syncTables.map { it.name }.toTypedArray() + "outbox" + "plan_conflict"
         driver.addListener(*tables, listener = listener)
         send(Unit)
         awaitClose { driver.removeListener(*tables, listener = listener) }
-    }.conflate().map { db.syncQueries.countPending().executeAsOne().toInt() }.flowOn(io).distinctUntilChanged()
+    }.conflate()
+    private val pending: Flow<Int> = changes.map { db.syncQueries.countPending().executeAsOne().toInt() }.flowOn(io).distinctUntilChanged()
+
+    /** What the loop wakes up for: not a move held by an open conflict, or it would sync every 2 s until someone chooses. */
+    private val sendable: Flow<Int> = changes.map { db.syncQueries.countSendable().executeAsOne().toInt() }.flowOn(io).distinctUntilChanged()
 
     fun observe(): Flow<SyncState> = combine(account.observe().map { it != null }, pending) { signedIn, n -> SyncState(signedIn, n) }
 
@@ -82,7 +86,7 @@ class SyncRepository internal constructor(
                 } catch (_: Exception) {
                     false // offline, or the server said no: try again later; the edits stay queued
                 }
-                if (ok) withTimeoutOrNull(60_000) { pending.first { it > 0 } } else delay(15_000)
+                if (ok) withTimeoutOrNull(60_000) { sendable.first { it > 0 } } else delay(15_000)
                 delay(2_000) // let a burst of edits gather into one push
             }
         }
@@ -121,19 +125,19 @@ class SyncRepository internal constructor(
                     val values = row.jsonObject
                     val key = table.keys.joinToString("|") { values.getValue(it).jsonPrimitive.content }
                     if (table.name == "user" && key == me.value) return@forEach // my own name is mine to change
-                    val mine = waiting[table.name to key].orEmpty()
-                    if (table.name == "plan_item" && "*" in mine && recordPlanConflict(key, values)) return@forEach
-                    writeRow(table, values, mine)
+                    val waitingFields = waiting[table.name to key].orEmpty()
+                    if (table.name == "plan_item") applyPlanItem(table, key, values, waitingFields)
+                    else writeRow(table, values, waitingFields)
                 }
             }
             val cursor = pull.getValue("cursor").jsonPrimitive.content
-            val mine = pull.getValue("trips").jsonArray.map { it.jsonPrimitive.content }.toSet()
+            val myTrips = pull.getValue("trips").jsonArray.map { it.jsonPrimitive.content }.toSet()
             // A trip pulled before (it has a cursor) that the server no longer lists: I left or was removed.
             // Trips without a cursor were made here and haven't gone up yet: they stay.
             // ponytail: media rows and their files stay behind; Storage management (Phase 3) clears them.
-            db.syncQueries.selectCursors().executeAsList().map { it.name }.filter { it != ME && it !in mine }
+            db.syncQueries.selectCursors().executeAsList().map { it.name }.filter { it != ME && it !in myTrips }
                 .forEach { db.tripQueries.forgetTrip(tripId = it, me = me.value) }
-            mine.forEach { db.syncQueries.putState(it, cursor) }
+            myTrips.forEach { db.syncQueries.putState(it, cursor) }
             db.syncQueries.putState(ME, cursor)
             db.syncQueries.deleteState(APPLYING)
         }
@@ -141,21 +145,36 @@ class SyncRepository internal constructor(
     }
 
     /**
-     * A plan move of mine waits to go up and theirs just came down: if we moved it to different days (tech spec §3),
-     * keep theirs aside for Sync conflict (19). Returns true when it did.
+     * A plan item came down (tech spec §3). With no move of mine waiting, it lands like any row. With one waiting,
+     * measured from where it was before my move (plan_base):
+     * - we moved it to different days: theirs is kept aside for Sync conflict (19), mine is held;
+     * - I only reordered it (or touched it) and they moved it to another day: their move wins, my change is dropped;
+     * - they only reordered it, or we agree: mine goes up next (last write wins).
+     * Whatever it was, it replaces an older conflict on the same objective: the server has moved on.
      */
-    private fun recordPlanConflict(objectiveId: String, theirs: JsonObject): Boolean {
-        val base = db.syncQueries.selectPlanBase(objectiveId).executeAsOneOrNull() ?: return false
-        val mine = db.objectiveQueries.selectPlanItem(objectiveId).executeAsOneOrNull() ?: return false
+    private fun applyPlanItem(table: SyncTable, objectiveId: String, theirs: JsonObject, waitingFields: List<String>) {
+        db.syncQueries.dropConflict(objectiveId)
+        val base = db.syncQueries.selectPlanBase(objectiveId).executeAsOneOrNull()
+        val local = db.objectiveQueries.selectPlanItem(objectiveId).executeAsOneOrNull()
         fun JsonObject.text(key: String) = (get(key) as? JsonPrimitive)?.takeIf { it !is JsonNull }?.content
+        // My own earlier push coming back (the 30 s overlap) is never a conflict with myself.
+        if (waitingFields.isEmpty() || base == null || local == null || theirs.text("updated_by") == me.value) {
+            return writeRow(table, theirs, waitingFields)
+        }
         val theirDay = theirs.text("day_id").takeIf { theirs.text("deleted_at") == null }
-        val myDay = mine.day_id.takeIf { mine.deleted_at == null }
-        if (!isPlanConflict(base.day_id, myDay, theirDay)) return false
-        db.syncQueries.putConflict(
-            objectiveId, theirDay, theirs.text("order_key") ?: mine.order_key, theirs.getValue("updated_at").jsonPrimitive.long,
-            theirs.text("updated_by"),
-        )
-        return true
+        val myDay = local.day_id.takeIf { local.deleted_at == null }
+        when {
+            isPlanConflict(base.day_id, myDay, theirDay) -> db.syncQueries.putConflict(
+                objectiveId, theirDay, theirs.text("order_key") ?: local.order_key, theirs.getValue("updated_at").jsonPrimitive.long,
+                theirs.text("updated_by"),
+            )
+            myDay == base.day_id && theirDay != base.day_id -> {
+                writeRow(table, theirs, emptyList())
+                db.syncQueries.dropOutboxRow(table.name, objectiveId)
+                db.syncQueries.clearPlanBase(objectiveId)
+            }
+            else -> writeRow(table, theirs, waitingFields)
+        }
     }
 
     /** Adds the row if it's new, then sets every field that isn't waiting to be pushed from here. */
@@ -191,11 +210,14 @@ class SyncRepository internal constructor(
     // ── Push ───────────────────────────────────────────────────────────────────────
 
     private suspend fun push(api: Supabase, token: String) {
-        val byTable = withContext(io) { db.syncQueries.selectOutbox().executeAsList() }.groupBy { it.tbl }
+        // Read together, so a conflict settled meanwhile can't let a dropped move through.
+        val (outbox, held) = withContext(io) {
+            db.transactionWithResult { db.syncQueries.selectOutbox().executeAsList() to db.syncQueries.selectConflictIds().executeAsList().toSet() }
+        }
+        val byTable = outbox.groupBy { it.tbl }
         for (table in syncTables) {
             // A move held by an open conflict waits for the climber's choice (19).
-            val held = if (table.name == "plan_item") withContext(io) { db.syncQueries.selectConflictIds().executeAsList().toSet() } else emptySet()
-            val entries = byTable[table.name]?.filter { it.row_key !in held } ?: continue
+            val entries = byTable[table.name]?.filter { table.name != "plan_item" || it.row_key !in held } ?: continue
             val newRows = mutableListOf<JsonObject>()
             val edits = mutableListOf<Pair<Map<String, String>, JsonObject>>()
             withContext(io) {
@@ -215,10 +237,26 @@ class SyncRepository internal constructor(
             edits.forEach { (keys, fields) -> unlessRefused { api.update(table.remote, keys, fields, token) } }
             // Only what was read: a field edited again meanwhile has a new id and waits for the next push.
             withContext(io) {
-                db.syncQueries.deleteSent(entries.map { it.id })
-                // Sent: the server now has my move, so it's the base any later conflict is measured against.
-                if (table.name == "plan_item") db.syncQueries.clearPlanBase(entries.map { it.row_key })
+                db.transaction {
+                    db.syncQueries.deleteSent(entries.map { it.id })
+                    if (table.name == "plan_item") newRows.forEach(::settlePlanBase)
+                }
             }
+        }
+    }
+
+    /**
+     * My move reached the server, so it's what a later conflict is measured from: no base while nothing else is
+     * waiting; if I moved it again meanwhile, the move just sent becomes that next move's base.
+     */
+    private fun settlePlanBase(sent: JsonObject) {
+        val objectiveId = sent.getValue("objective_id").jsonPrimitive.content
+        val stillWaiting = db.syncQueries.selectOutbox().executeAsList().any { it.tbl == "plan_item" && it.row_key == objectiveId }
+        if (!stillWaiting) {
+            db.syncQueries.clearPlanBase(objectiveId)
+        } else {
+            val deleted = (sent["deleted_at"] as? JsonPrimitive)?.takeIf { it !is JsonNull } != null
+            db.syncQueries.setPlanBase(sent.getValue("day_id").jsonPrimitive.content.takeIf { !deleted }, objectiveId)
         }
     }
 

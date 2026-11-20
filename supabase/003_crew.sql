@@ -86,7 +86,8 @@ begin
     if me is null then
         raise exception 'Sign in first' using errcode = '42501';
     end if;
-    for t in select trip_id from trip_member where user_id = me and deleted_at is null loop
+    -- In trip order, like any other caller would lock them: two accounts deleted at once can't deadlock.
+    for t in select trip_id from trip_member where user_id = me and deleted_at is null order by trip_id loop
         perform lock_crew(t);
         perform leave_as(t, me);
     end loop;

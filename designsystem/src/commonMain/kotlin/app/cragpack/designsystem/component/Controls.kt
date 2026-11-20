@@ -126,8 +126,8 @@ fun StarToggle(on: Boolean, onToggle: () -> Unit, contentDescription: String, mo
 }
 
 /**
- * `.row` + `.radio` — one choice in a sheet; the selected row gets an ink outline. [meta] adds a second line
- * and [leading] an avatar (Sync conflict, 19: who moved it and when).
+ * `.row` + `.radio` — one choice in a sheet; the selected row gets an ink outline. With [meta] (a second line)
+ * the radio comes first and [trailing] (an avatar) last, as in Sync conflict (19).
  */
 @Composable
 fun CtRadioRow(
@@ -136,7 +136,7 @@ fun CtRadioRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     meta: String? = null,
-    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val c = CragpackTheme.colors
     val shape = RoundedCornerShape(RadiusTokens.lg)
@@ -153,14 +153,18 @@ fun CtRadioRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        leading?.invoke()
+        val radio = @Composable {
+            Box(Modifier.size(26.dp).border(2.dp, c.ink, CircleShape), contentAlignment = Alignment.Center) {
+                if (selected) Box(Modifier.size(11.dp).clip(CircleShape).background(c.ink))
+            }
+        }
+        if (meta != null) radio()
         Column(Modifier.weight(1f)) {
             CtText(text, style = CragpackTheme.type.rowName.copy(fontSize = 16.sp), maxLines = 1)
             meta?.let { CtText(it, Modifier.padding(top = 2.dp), style = CragpackTheme.type.label, color = c.ink2, maxLines = 1) }
         }
-        Box(Modifier.size(26.dp).border(2.dp, c.ink, CircleShape), contentAlignment = Alignment.Center) {
-            if (selected) Box(Modifier.size(11.dp).clip(CircleShape).background(c.ink))
-        }
+        trailing?.invoke()
+        if (meta == null) radio()
     }
 }
 

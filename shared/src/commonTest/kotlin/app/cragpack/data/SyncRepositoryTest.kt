@@ -257,5 +257,64 @@ class SyncRepositoryTest {
         assertEquals(days[1], pushed.getValue("plan_item").last().str("day_id")) // mine goes up and wins
     }
 
+    /** A plan item coming down: on [day], moved by [by]. */
+    private fun planRow(trip: String, objective: String, day: String, by: String, cursor: String) =
+        """{"trips":["$trip"],"cursor":"$cursor","plan_item":[{"objective_id":"$objective","trip_id":"$trip","day_id":"$day",
+            "order_key":"z","updated_at":1795000000000,"deleted_at":null,"updated_by":"$by"}]}"""
+
+    private suspend fun plannedAndSynced(): Triple<String, String, List<String>> {
+        val trip = graph.trips.create("Font Easter", "Fontainebleau", LocalDate.parse("2026-04-17"), LocalDate.parse("2026-04-19"))
+        graph.account.signIn("lea@example.com", "secret")
+        val objective = graph.objectives.add(trip, "Carnage", ClimbStyle.Boulder, Grade(GradeScale.Font, "7B+"), null)
+        val days = graph.plan.observeDays(trip).first().map { it.id }
+        graph.plan.place(objective, days[0], 0)
+        pull = """{"trips":["$trip"],"cursor":"2026-11-20T10:00:00+00:00"}"""
+        graph.sync.syncNow()
+        return Triple(trip, objective, days)
+    }
+
+    @Test
+    fun theirMoveBeatsMyReorderWithinTheOldDay() = runTest {
+        val (trip, objective, days) = plannedAndSynced()
+        val other = graph.objectives.add(trip, "Other", ClimbStyle.Boulder, Grade(GradeScale.Font, "6A"), null)
+        graph.plan.place(other, days[0], 0)
+        graph.sync.syncNow()
+        graph.plan.place(objective, days[0], 0) // I only reorder it within day 1
+        pull = planRow(trip, objective, days[2], tom, "2026-11-20T10:05:00+00:00") // Tom moved it to day 3
+        pushed.clear()
+
+        graph.sync.syncNow()
+
+        assertEquals(days[2], graph.plan.observePlan(trip).first().single { it.objectiveId == objective }.dayId)
+        assertEquals(null, pushed["plan_item"]) // my reorder doesn't undo his move
+        assertEquals(emptyList(), graph.plan.observeConflicts(trip).first())
+    }
+
+    @Test
+    fun aConflictTheServerMovedPastIsDropped() = runTest {
+        val (trip, objective, days) = plannedAndSynced()
+        graph.plan.place(objective, days[1], 0) // mine: day 2
+        pull = planRow(trip, objective, days[2], tom, "2026-11-20T10:05:00+00:00") // his: day 3
+        graph.sync.syncNow()
+        assertEquals(1, graph.plan.observeConflicts(trip).first().size)
+
+        pull = planRow(trip, objective, days[0], tom, "2026-11-20T10:06:00+00:00") // he puts it back on day 1
+        graph.sync.syncNow()
+
+        assertEquals(emptyList(), graph.plan.observeConflicts(trip).first())
+        assertEquals(days[1], pushed.getValue("plan_item").last().str("day_id")) // and mine goes up
+    }
+
+    @Test
+    fun myOwnEarlierMoveComingBackIsNoConflict() = runTest {
+        val (trip, objective, days) = plannedAndSynced()
+        graph.plan.place(objective, days[2], 0)
+        pull = planRow(trip, objective, days[1], lea, "2026-11-20T10:05:00+00:00") // my day-2 move, echoed in the overlap
+
+        graph.sync.syncNow()
+
+        assertEquals(emptyList(), graph.plan.observeConflicts(trip).first())
+    }
+
     private fun JsonObject.str(key: String) = getValue(key).toString().trim('"')
 }

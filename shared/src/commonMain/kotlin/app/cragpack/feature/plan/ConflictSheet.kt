@@ -17,6 +17,8 @@ import app.cragpack.designsystem.component.CtButton
 import app.cragpack.designsystem.component.CtButtonSize
 import app.cragpack.designsystem.component.CtButtonStyle
 import app.cragpack.designsystem.component.CtRadioRow
+import app.cragpack.designsystem.component.GradeChip
+import app.cragpack.feature.text
 import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.domain.format.formatTime
 import app.cragpack.domain.format.formatWeekday
@@ -41,8 +43,9 @@ class ConflictViewModel(private val graph: AppGraph, tripId: String) : ViewModel
 
 /**
  * Sync conflict (19): two climbers moved the same objective to different days while offline, and the other move
- * reached the server first (tech spec §3). Pick one; ✕ asks again next time the trip opens. Shown over any tab,
- * because my move doesn't go up until it's settled.
+ * reached the server first (tech spec §3). Pick one; ✕ asks again next time the trip opens (my move stays held
+ * and counted in "N edits to sync" until then). Shown over any tab, because my move doesn't go up until it's settled.
+ * Moving it vs unplanning it counts as two different places too.
  */
 @Composable
 fun BoxScope.ConflictSheet(vm: ConflictViewModel) {
@@ -51,7 +54,12 @@ fun BoxScope.ConflictSheet(vm: ConflictViewModel) {
     val (conflicts, me) = state ?: return
     val conflict = conflicts.firstOrNull { it.objectiveId !in later }
     var keepMine by remember(conflict?.objectiveId) { mutableStateOf(true) }
-    CtBottomSheet(conflict != null, conflict?.let { "${it.name} moved twice" }.orEmpty(), onDismiss = { conflict?.let { later = later + it.objectiveId } }) {
+    CtBottomSheet(
+        conflict != null,
+        conflict?.let { "${it.name} moved twice" }.orEmpty(),
+        onDismiss = { conflict?.let { later = later + it.objectiveId } },
+        titleLeading = conflict?.let { c -> { GradeChip(c.grade.text(), c.grade.band) } },
+    ) {
         val c = conflict ?: return@CtBottomSheet
         val mine = c.mine.copy(by = me)
         MoveRow(mine, "You", selected = keepMine) { keepMine = true }
@@ -71,7 +79,7 @@ private fun MoveRow(move: Move, who: String, selected: Boolean, onClick: () -> U
     CtRadioRow(
         where, selected, onClick,
         meta = "$who · ${formatTime(move.atMillis)}",
-        leading = { move.by?.let { Avatar(it.name, it.colorIndex) } },
+        trailing = { move.by?.let { Avatar(it.name, it.colorIndex) } },
     )
 }
 
