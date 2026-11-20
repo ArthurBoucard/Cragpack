@@ -68,10 +68,26 @@ class TripSettingsViewModel(private val graph: AppGraph, private val tripId: Str
     /** Live trip for the cover, dates and crew size; null while loading or once deleted. */
     val detail = graph.trips.observeTrip(tripId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Organisers with an account reset the invite link (tech spec §5). */
-    val canResetLink = combine(graph.account.observeSignedIn(), graph.trips.observeCrew(tripId)) { signedIn, crew ->
-        signedIn && crew.any { it.person.id == graph.myId && it.organiser }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    /** What I may do here: organisers reset the link and delete the trip; anyone in a shared trip can leave. */
+    val rights = combine(graph.account.observeSignedIn(), graph.trips.observeCrew(tripId)) { signedIn, crew ->
+        val organiser = crew.any { it.person.id == graph.myId && it.organiser }
+        Rights(resetLink = signedIn && organiser, delete = organiser, leave = signedIn && crew.size > 1)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Rights())
+
+    data class Rights(val resetLink: Boolean = false, val delete: Boolean = false, val leave: Boolean = false)
+
+    var leaveError by mutableStateOf<String?>(null)
+
+    /** True once left: the trip is gone from this phone. */
+    suspend fun leave(): Boolean = try {
+        graph.crew.leave(tripId)
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        leaveError = (e as? SupabaseException)?.takeIf { it.refused }?.message ?: "Can't leave right now. Check your connection and try again."
+        false
+    }
     var linkMessage by mutableStateOf<String?>(null)
 
     fun resetLink() = viewModelScope.launch {
@@ -125,12 +141,13 @@ class TripSettingsViewModel(private val graph: AppGraph, private val tripId: Str
 
 /**
  * Trip settings (29) and Confirm delete (30).
- * ponytail: Leave trip arrives with crew management (Phase 2).
+ * Leave trip: anyone in a shared trip (the trip leaves this phone). Delete trip and Reset: organisers.
  */
 @Composable
 fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted: () -> Unit) {
     val detail by vm.detail.collectAsStateWithLifecycle()
-    val canResetLink by vm.canResetLink.collectAsStateWithLifecycle()
+    val rights by vm.rights.collectAsStateWithLifecycle()
+    var confirmLeave by rememberSaveable { mutableStateOf(false) }
     var datesOpen by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var confirmReset by rememberSaveable { mutableStateOf(false) }
@@ -145,6 +162,14 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
                 visible = datesOpen, start = trip.start, end = trip.end, today = vm.today,
                 onDone = { s, e -> vm.changeDates(s, e); datesOpen = false },
                 onDismiss = { datesOpen = false },
+            )
+            CtConfirmDialog(
+                visible = confirmLeave,
+                title = "Leave ${trip.name}?",
+                text = "The trip leaves this phone. Your sends stay in your logbook, and the invite link brings you back.",
+                confirmLabel = "Leave",
+                onConfirm = { confirmLeave = false; scope.launch { if (vm.leave()) onDeleted() } },
+                onDismiss = { confirmLeave = false },
             )
             CtConfirmDialog(
                 visible = confirmReset,
@@ -185,7 +210,7 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
                 CtFieldButton("Start", formatDayShort(trip.start), "", { datesOpen = true }, Modifier.weight(1f))
                 CtFieldButton("End", formatDayShort(trip.end), "", { datesOpen = true }, Modifier.weight(1f))
             }
-            if (canResetLink) {
+            if (rights.resetLink) {
                 ListRow(
                     "Invite link",
                     leading = { Box(Modifier.size(SizeTokens.tapSm), contentAlignment = Alignment.Center) { CtIcon(LucideIcon.Link, null) } },
@@ -193,10 +218,15 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
                 )
                 vm.linkMessage?.let { CtText(it, Modifier.padding(horizontal = 8.dp), color = CragpackTheme.colors.ink2) }
             }
-            CtButton(
-                "Delete trip", { confirmDelete = true },
-                style = CtButtonStyle.Danger, size = CtButtonSize.Wide, icon = LucideIcon.Trash2,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
+                if (rights.leave) {
+                    CtButton("Leave trip", { confirmLeave = true }, Modifier.weight(1f), style = CtButtonStyle.Ghost, icon = LucideIcon.LogOut)
+                }
+                if (rights.delete) {
+                    CtButton("Delete trip", { confirmDelete = true }, Modifier.weight(1f), style = CtButtonStyle.Danger, icon = LucideIcon.Trash2)
+                }
+            }
+            vm.leaveError?.let { CtText(it, Modifier.padding(horizontal = 8.dp), color = CragpackTheme.colors.dangerInk) }
             Spacer(Modifier.height(bottom.calculateBottomPadding()))
         }
     }

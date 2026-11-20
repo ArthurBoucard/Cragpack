@@ -124,7 +124,12 @@ class SyncRepository internal constructor(
                 }
             }
             val cursor = pull.getValue("cursor").jsonPrimitive.content
-            pull.getValue("trips").jsonArray.forEach { db.syncQueries.putState(it.jsonPrimitive.content, cursor) }
+            val mine = pull.getValue("trips").jsonArray.map { it.jsonPrimitive.content }.toSet()
+            // A trip pulled before (it has a cursor) that the server no longer lists: I left or was removed.
+            // Trips without a cursor were made here and haven't gone up yet: they stay.
+            db.syncQueries.selectCursors().executeAsList().map { it.name }.filter { it != ME && it !in mine }
+                .forEach { db.tripQueries.forgetTrip(tripId = it, me = me.value) }
+            mine.forEach { db.syncQueries.putState(it, cursor) }
             db.syncQueries.putState(ME, cursor)
             db.syncQueries.deleteState(APPLYING)
         }

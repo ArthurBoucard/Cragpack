@@ -27,7 +27,7 @@ class AccountRepositoryTest {
     private var signupConfirms = false
 
     private val engine = MockEngine { request ->
-        val path = request.url.encodedPath.substringAfter("/auth/v1/") + request.url.encodedQuery.let { if (it.isEmpty()) "" else "?$it" }
+        val path = request.url.encodedPath.removePrefix("/").removePrefix("auth/v1/") + request.url.encodedQuery.let { if (it.isEmpty()) "" else "?$it" }
         calls += path
         val session = """{"access_token":"access-$path","refresh_token":"refresh","expires_at":${Clock.System.now().epochSeconds + 3600},
             "user":{"id":"$accountId","email":"lea@example.com","user_metadata":{"name":"Léa"}}}"""
@@ -35,6 +35,7 @@ class AccountRepositoryTest {
             "signup" -> HttpStatusCode.OK to if (signupConfirms) """{"id":"$accountId","email":"lea@example.com"}""" else session
             "token?grant_type=password", "token?grant_type=refresh_token" -> HttpStatusCode.OK to session
             "logout" -> HttpStatusCode.NoContent to ""
+            "rest/v1/rpc/delete_account" -> HttpStatusCode.NoContent to ""
             else -> HttpStatusCode.BadRequest to """{"code":400,"error_code":"invalid_credentials","msg":"Invalid login credentials"}"""
         }
         respond(body, status, headersOf("Content-Type", "application/json"))
@@ -82,6 +83,18 @@ class AccountRepositoryTest {
         assertNull(graph.account.accessToken())
         assertEquals(Theme.Dark, graph.settings.current().theme)
         assertEquals("logout", calls.last())
+    }
+
+    @Test
+    fun deletingTheAccountAsksTheServerThenClearsThePhone() = runTest {
+        graph.account.signUp("Léa", "lea@example.com", "secret")
+        graph.trips.create("Font Easter", "Fontainebleau", LocalDate.parse("2026-04-17"), LocalDate.parse("2026-04-21"))
+
+        graph.account.deleteAccount()
+
+        assertEquals("rest/v1/rpc/delete_account", calls.last())
+        assertNull(graph.account.observe().first())
+        assertEquals(emptyList(), graph.trips.observeTrips().first())
     }
 
     @Test

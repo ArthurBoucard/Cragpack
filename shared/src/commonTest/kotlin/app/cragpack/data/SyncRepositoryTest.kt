@@ -1,5 +1,9 @@
 package app.cragpack.data
 
+import app.cragpack.domain.grade.Grade
+import app.cragpack.domain.grade.GradeScale
+import app.cragpack.domain.log.LogStyle
+import app.cragpack.domain.objective.ClimbStyle
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -148,6 +152,33 @@ class SyncRepositoryTest {
         graph.sync.syncNow() // doesn't throw
 
         assertEquals(0, graph.sync.observe().first().pending)
+    }
+
+    @Test
+    fun aTripILeftLeavesThePhoneButMySendsStay() = runTest {
+        val trip = signedInWithATrip()
+        val objective = graph.objectives.add(trip, "La Joker", ClimbStyle.Boulder, Grade(GradeScale.Font, "7A"), null)
+        graph.logs.log(objective, LogStyle.Sent)
+        pull = """{"trips":["$trip"],"cursor":"2026-11-20T10:00:00+00:00"}"""
+        graph.sync.syncNow() // pulled once: the phone knows the server has it
+
+        pull = """{"trips":[],"cursor":"2026-11-20T10:05:00+00:00"}"""
+        graph.sync.syncNow()
+
+        assertEquals(emptyList(), graph.trips.observeTrips().first())
+        assertEquals(listOf("La Joker"), graph.logs.observeLogbook().first().map { it.name })
+        assertEquals(0, graph.sync.observe().first().pending) // forgetting isn't an edit to send
+    }
+
+    @Test
+    fun aTripNotYetUploadedIsKeptEvenThoughTheServerDoesntListIt() = runTest {
+        signedInWithATrip()
+        graph.sync.syncNow()
+        graph.trips.create("Magic Wood", "Averstal", LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-05"))
+
+        graph.sync.syncNow()
+
+        assertEquals(2, graph.trips.observeTrips().first().size)
     }
 
     private fun JsonObject.str(key: String) = getValue(key).toString().trim('"')

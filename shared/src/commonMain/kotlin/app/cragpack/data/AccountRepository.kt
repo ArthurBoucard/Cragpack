@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
 
 data class Account(val name: String, val email: String, val provider: String)
 
@@ -56,6 +57,20 @@ class AccountRepository internal constructor(
     /** Clears the phone and starts again as a new local user. The account's trips stay on the server. */
     suspend fun signOut() = session.withLock {
         runCatching { accessToken()?.let { auth?.signOut(it) } } // offline: the session just expires
+        clearPhone()
+    }
+
+    /**
+     * Settings → Delete account (tech spec §2): the server deletes the account and its climbs, stars and claims
+     * (supabase/003_crew.sql), then the phone is cleared. Online only: throws when it can't reach Supabase.
+     */
+    suspend fun deleteAccount() = session.withLock {
+        val token = accessToken() ?: throw SupabaseException("Sign in first", null)
+        auth().rpc("delete_account", JsonObject(emptyMap()), token)
+        clearPhone()
+    }
+
+    private suspend fun clearPhone() {
         val id = newId()
         withContext(io) {
             val t = now()

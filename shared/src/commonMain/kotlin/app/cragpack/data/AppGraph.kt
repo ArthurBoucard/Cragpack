@@ -47,6 +47,7 @@ class AppGraph internal constructor(driver: SqlDriver, private val clock: Clock,
     val account = AccountRepository(db, supabase, me, ::nowMillis)
     val sync = SyncRepository(db, driver, supabase, account, me)
     val invites = InviteRepository(supabase, account, sync)
+    val crew = CrewRepository(supabase, account, sync)
 
     /**
      * An invite link the phone opened the app with (Android App Links), waiting for the UI to show Join.

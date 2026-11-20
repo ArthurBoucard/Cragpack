@@ -1,5 +1,9 @@
 package app.cragpack.feature.settings
 
+import kotlinx.coroutines.CancellationException
+import app.cragpack.designsystem.component.CtButtonStyle
+import app.cragpack.designsystem.component.CtButtonSize
+import app.cragpack.designsystem.component.CtButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,6 +62,19 @@ class SettingsViewModel(private val graph: AppGraph) : ViewModel() {
     fun setWifiOnly(value: Boolean) = write { graph.settings.setWifiOnly(value) }
     fun signOut() = viewModelScope.launch { graph.account.signOut() }
 
+    var deleteError by mutableStateOf<String?>(null)
+
+    fun deleteAccount() = viewModelScope.launch {
+        deleteError = try {
+            graph.account.deleteAccount()
+            null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            "Can't delete your account right now. Check your connection and try again."
+        }
+    }
+
     private fun write(block: () -> Unit) = viewModelScope.launch(Dispatchers.IO) { block() }
 }
 
@@ -65,7 +82,7 @@ private val gradeLabels = listOf(GradeDisplay.AsEntered to "As entered", GradeDi
 
 /**
  * Settings (27). Without an account the account row reads "Create account" and opens the account prompt (design gap, decided).
- * ponytail: Delete account arrives with crew management (Phase 2); Storage management (remove offline copies) with the offline pack (Phase 3).
+ * ponytail: Storage management (remove offline copies) arrives with the offline pack (Phase 3).
  */
 @Composable
 fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: () -> Unit) {
@@ -75,6 +92,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: (
     val unsynced by vm.unsynced.collectAsStateWithLifecycle()
     var prompt by rememberSaveable { mutableStateOf(false) }
     var confirmSignOut by rememberSaveable { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
     CtScreen(
         overlay = {
             AccountPromptSheet(AccountReason.Sync.takeIf { prompt }, onDismiss = { prompt = false }, onEmail = { prompt = false; onCreateAccount() })
@@ -89,6 +107,15 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: (
                 confirmLabel = "Sign out",
                 onConfirm = { confirmSignOut = false; vm.signOut() },
                 onDismiss = { confirmSignOut = false },
+            )
+            CtConfirmDialog(
+                visible = confirmDelete,
+                title = "Delete your account?",
+                text = "Your account, your climbs, stars and gear claims are deleted for good, for your crew too. " +
+                    "Trips you share stay with the crew; trips only you were in are deleted.",
+                confirmLabel = "Delete",
+                onConfirm = { confirmDelete = false; vm.deleteAccount() },
+                onDismiss = { confirmDelete = false },
             )
         },
     ) { bottom ->
@@ -142,6 +169,8 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: (
                         Box(Modifier.size(SizeTokens.tapSm), contentAlignment = Alignment.Center) { CtIcon(LucideIcon.LogOut, null) }
                     },
                 )
+                CtButton("Delete account", { confirmDelete = true }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide, icon = LucideIcon.Trash2)
+                vm.deleteError?.let { CtText(it, Modifier.padding(horizontal = 8.dp), color = CragpackTheme.colors.dangerInk) }
             }
         }
     }

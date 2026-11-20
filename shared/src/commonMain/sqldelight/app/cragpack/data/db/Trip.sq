@@ -141,3 +141,20 @@ SELECT
         AND (SELECT coalesce(sum(c.quantity), 0) FROM gear_claim c WHERE c.gear_item_id = g.id AND c.deleted_at IS NULL) >= g.quantity_needed) AS gear_covered,
     (SELECT count(*) FROM beta_item b JOIN objective o ON o.id = b.objective_id
         WHERE o.trip_id = :tripId AND b.deleted_at IS NULL AND o.deleted_at IS NULL) AS beta;
+
+-- I left or was removed (the server no longer lists the trip): it leaves this phone. My own climbs stay in
+-- my logbook (D2); everything else of the trip goes. Run while a pull is applied, so nothing is queued.
+forgetTrip {
+    DELETE FROM interest WHERE objective_id IN (SELECT id FROM objective WHERE trip_id = :tripId);
+    DELETE FROM plan_item WHERE objective_id IN (SELECT id FROM objective WHERE trip_id = :tripId);
+    DELETE FROM beta_item WHERE objective_id IN (SELECT id FROM objective WHERE trip_id = :tripId);
+    DELETE FROM gear_claim WHERE gear_item_id IN (SELECT id FROM gear_item WHERE trip_id = :tripId);
+    DELETE FROM gear_item WHERE trip_id = :tripId;
+    DELETE FROM objective WHERE trip_id = :tripId;
+    DELETE FROM day WHERE trip_id = :tripId;
+    DELETE FROM sector WHERE trip_id = :tripId;
+    DELETE FROM trip_member WHERE trip_id = :tripId;
+    DELETE FROM log_entry WHERE trip_id = :tripId AND user_id <> :me;
+    DELETE FROM trip WHERE id = :tripId;
+    DELETE FROM sync_state WHERE name = :tripId;
+}
