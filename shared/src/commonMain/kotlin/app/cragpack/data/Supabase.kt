@@ -55,6 +55,11 @@ internal class Supabase(private val http: HttpClient, private val url: String, p
     suspend fun signIn(email: String, password: String): Session =
         toSession(call("token?grant_type=password", buildJsonObject { put("email", email); put("password", password) }))
 
+    /** Sign in with an ID token from Google (or Apple) got on the phone; [nonce] is the raw one whose hash went to the provider. */
+    suspend fun signInWithIdToken(provider: String, idToken: String, nonce: String): Session = toSession(
+        call("token?grant_type=id_token", buildJsonObject { put("provider", provider); put("id_token", idToken); put("nonce", nonce) }),
+    )
+
     suspend fun refresh(refreshToken: String): Session =
         toSession(call("token?grant_type=refresh_token", buildJsonObject { put("refresh_token", refreshToken) }))
 
@@ -118,7 +123,7 @@ internal class Supabase(private val http: HttpClient, private val url: String, p
         Session(
             userId = user.string("id")!!,
             email = user.string("email").orEmpty(),
-            name = user["user_metadata"]?.jsonObject?.string("name").orEmpty(),
+            name = user["user_metadata"]?.jsonObject?.let { it.string("name") ?: it.string("full_name") }.orEmpty(),
             accessToken = json.string("access_token")!!,
             refreshToken = json.string("refresh_token")!!,
             expiresAt = json.getValue("expires_at").jsonPrimitive.long,

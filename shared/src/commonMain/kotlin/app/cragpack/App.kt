@@ -23,6 +23,7 @@ import app.cragpack.feature.LocalGradeDisplay
 import app.cragpack.feature.LocalSyncStatus
 import app.cragpack.feature.toStatus
 import app.cragpack.feature.account.AccountScreen
+import app.cragpack.feature.account.LocalAccount
 import app.cragpack.feature.account.AccountViewModel
 import app.cragpack.feature.crew.CrewScreen
 import app.cragpack.feature.crew.CrewViewModel
@@ -84,7 +85,11 @@ fun App(graph: AppGraph) {
     }
     val sync by remember { graph.sync.observe() }.collectAsState(SyncState(signedIn = false, pending = 0))
     CragpackTheme(mode) {
-        CompositionLocalProvider(LocalGradeDisplay provides settings.gradeDisplay, LocalSyncStatus provides sync.toStatus()) { AppNav(graph) }
+        CompositionLocalProvider(
+            LocalGradeDisplay provides settings.gradeDisplay,
+            LocalSyncStatus provides sync.toStatus(),
+            LocalAccount provides graph.account,
+        ) { AppNav(graph) }
     }
 }
 

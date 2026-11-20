@@ -23,7 +23,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import app.cragpack.data.AccountRepository
 import app.cragpack.data.AppGraph
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import app.cragpack.feature.explainFailure
 import app.cragpack.data.SupabaseException
 import app.cragpack.designsystem.component.CtBackHandler
 import app.cragpack.designsystem.component.CtBottomSheet
@@ -50,16 +54,42 @@ enum class AccountReason(val title: String) {
     Sync("Create an account to sync your phones"),
 }
 
+/** The account repository, for the account prompt's Google button (provided by App()). */
+val LocalAccount = staticCompositionLocalOf<AccountRepository?> { null }
+
 /**
  * Account prompt (13): only before an action that needs others or the cloud (D4). ✕ = Not now.
- * ponytail: Apple and Google buttons arrive with their sign-in (Phase 2, last step);
- * the Terms / Privacy line with the policy itself (Phase 5).
+ * Google signs in right here (the screen behind carries on once there's an account); email opens Create account.
+ * ponytail: Sign in with Apple needs a paid Apple developer account; the Terms / Privacy line waits for the policy (Phase 5).
  */
 @Composable
 fun BoxScope.AccountPromptSheet(reason: AccountReason?, onDismiss: () -> Unit, onEmail: () -> Unit) {
+    val google = rememberGoogleSignIn()
+    val account = LocalAccount.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var error by remember(reason) { mutableStateOf<String?>(null) }
     CtBottomSheet(reason != null, reason?.title.orEmpty(), onDismiss) {
         CtText("Your trips on this phone come with you.", color = CragpackTheme.colors.ink2)
+        if (google != null && account != null) {
+            CtButton("Continue with Google", {
+                scope.launch {
+                    busy = true
+                    error = try {
+                        google.idToken()?.let { account.signInWithIdToken("google", it.token, it.nonce); onDismiss() }
+                        null
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        explainFailure(e, "sign in with Google")
+                    } finally {
+                        busy = false
+                    }
+                }
+            }, size = CtButtonSize.Wide, enabled = !busy)
+        }
         CtButton("Continue with email", onEmail, style = CtButtonStyle.Ghost, size = CtButtonSize.Wide, icon = LucideIcon.Mail)
+        error?.let { CtText(it, color = CragpackTheme.colors.dangerInk) }
     }
 }
 

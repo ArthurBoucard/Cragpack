@@ -46,6 +46,9 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.sqldelight.android)
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.androidx.credentials)
+            implementation(libs.androidx.credentials.play)
+            implementation(libs.googleid)
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native)
@@ -98,7 +101,7 @@ kotlin.sourceSets.commonMain { kotlin.srcDir(generateGradeTable) }
 val generateSupabaseConfig = tasks.register("generateSupabaseConfig") {
     val props = rootProject.layout.projectDirectory.file("local.properties").asFile
     val values = Properties().apply { if (props.exists()) props.inputStream().use(::load) }
-        .let { p -> listOf("supabase.url", "supabase.key").map { p.getProperty(it).orEmpty().trim() } }
+        .let { p -> listOf("supabase.url", "supabase.key", "google.webClientId").map { p.getProperty(it).orEmpty().trim() } }
     val output = layout.buildDirectory.dir("generated/supabase")
     inputs.property("values", values)
     outputs.dir(output)
@@ -113,6 +116,8 @@ val generateSupabaseConfig = tasks.register("generateSupabaseConfig") {
             |internal object SupabaseConfig {
             |    const val URL = "${values[0]}"
             |    const val KEY = "${values[1]}"
+            |    /** Google sign-in: the OAuth "Web application" client id also set in Supabase → Auth → Google. Blank = no Google button. */
+            |    const val GOOGLE_WEB_CLIENT_ID = "${values[2]}"
             |}
             |""".trimMargin()
         )
