@@ -49,4 +49,6 @@ wipe {
     DELETE FROM user;
     DELETE FROM outbox;
     DELETE FROM sync_state;
+    DELETE FROM plan_base;
+    DELETE FROM plan_conflict;
 }

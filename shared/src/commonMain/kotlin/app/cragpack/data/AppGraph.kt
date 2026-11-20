@@ -25,7 +25,7 @@ class AppGraph internal constructor(driver: SqlDriver, private val clock: Clock,
     val db = CragpackDb(driver)
 
     init {
-        outboxTriggers().forEach { driver.execute(null, it, 0) }
+        (outboxTriggers() + planBaseTriggers()).forEach { driver.execute(null, it, 0) }
     }
 
     /**

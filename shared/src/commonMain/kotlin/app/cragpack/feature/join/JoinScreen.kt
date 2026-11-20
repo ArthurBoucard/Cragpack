@@ -46,6 +46,7 @@ import app.cragpack.domain.format.formatDateRange
 import app.cragpack.domain.invite.InviteExpiredException
 import app.cragpack.domain.invite.InvitePreview
 import app.cragpack.feature.account.AccountPromptSheet
+import app.cragpack.feature.explainFailure
 import app.cragpack.feature.account.AccountReason
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -66,10 +67,10 @@ class JoinViewModel(private val graph: AppGraph, private val token: String) : Vi
     /** The account prompt is up: join as soon as there's an account. */
     var askingForAccount by mutableStateOf(false)
 
-    /** Set once joined: the screen moves on. [where] is the trip, or null when it isn't on the phone yet. */
+    /** Set once joined: the screen moves on, to the trip or (when it isn't on the phone yet) to Trips home. */
     var joined by mutableStateOf<Joined?>(null)
 
-    class Joined(val where: String?)
+    class Joined(val tripOnPhone: String?)
 
     init {
         load()
@@ -108,8 +109,8 @@ class JoinViewModel(private val graph: AppGraph, private val token: String) : Vi
             throw e
         } catch (_: InviteExpiredException) {
             state = JoinState.Expired
-        } catch (_: Exception) {
-            error = "Can't join right now. Check your connection and try again."
+        } catch (e: Exception) {
+            error = explainFailure(e, "join")
         } finally {
             joining = false
         }
@@ -125,7 +126,7 @@ class JoinViewModel(private val graph: AppGraph, private val token: String) : Vi
 fun JoinScreen(vm: JoinViewModel, onJoined: (tripId: String) -> Unit, onTrips: () -> Unit, onCreateAccount: () -> Unit) {
     var prompt by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(vm.askingForAccount) { prompt = vm.askingForAccount }
-    LaunchedEffect(vm.joined) { vm.joined?.let { it.where?.let(onJoined) ?: onTrips() } }
+    LaunchedEffect(vm.joined) { vm.joined?.let { it.tripOnPhone?.let(onJoined) ?: onTrips() } }
     when (val state = vm.state) {
         JoinState.Expired -> Expired(onTrips)
         else -> CtScreen(

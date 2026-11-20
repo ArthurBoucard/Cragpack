@@ -19,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import app.cragpack.designsystem.component.CtConfirmDialog
 import app.cragpack.feature.account.AccountPromptSheet
+import app.cragpack.feature.explainFailure
 import app.cragpack.feature.account.AccountReason
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,8 +71,8 @@ class SettingsViewModel(private val graph: AppGraph) : ViewModel() {
             null
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
-            "Can't delete your account right now. Check your connection and try again."
+        } catch (e: Exception) {
+            explainFailure(e, "delete your account")
         }
     }
 
@@ -161,13 +162,9 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: (
                 trailing = { CtText(formatBytes(storage), Modifier.padding(end = 10.dp), color = CragpackTheme.colors.ink2) },
             )
             if (account != null) {
-                Section("Account")
-                ListRow(
-                    "Sign out",
-                    onClick = { confirmSignOut = true },
-                    leading = {
-                        Box(Modifier.size(SizeTokens.tapSm), contentAlignment = Alignment.Center) { CtIcon(LucideIcon.LogOut, null) }
-                    },
+                CtButton(
+                    "Sign out", { confirmSignOut = true }, Modifier.padding(top = 12.dp),
+                    style = CtButtonStyle.Ghost, size = CtButtonSize.Wide, icon = LucideIcon.LogOut,
                 )
                 CtButton("Delete account", { confirmDelete = true }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide, icon = LucideIcon.Trash2)
                 vm.deleteError?.let { CtText(it, Modifier.padding(horizontal = 8.dp), color = CragpackTheme.colors.dangerInk) }

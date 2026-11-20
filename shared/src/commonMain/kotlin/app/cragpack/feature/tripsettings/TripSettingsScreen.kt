@@ -15,7 +15,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import app.cragpack.feature.explainFailure
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,7 +32,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.cragpack.data.AppGraph
 import app.cragpack.data.MediaFiles
-import app.cragpack.data.SupabaseException
 import kotlinx.coroutines.CancellationException
 import app.cragpack.designsystem.component.CtButton
 import app.cragpack.designsystem.component.CtButtonSize
@@ -78,15 +79,18 @@ class TripSettingsViewModel(private val graph: AppGraph, private val tripId: Str
 
     var leaveError by mutableStateOf<String?>(null)
 
-    /** True once left: the trip is gone from this phone. */
-    suspend fun leave(): Boolean = try {
-        graph.crew.leave(tripId)
-        true
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        leaveError = (e as? SupabaseException)?.takeIf { it.refused }?.message ?: "Can't leave right now. Check your connection and try again."
-        false
+    /** True once left: the trip is gone from this phone and the screen closes. */
+    var left by mutableStateOf(false)
+
+    fun leave() = viewModelScope.launch {
+        try {
+            graph.crew.leave(tripId)
+            left = true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            leaveError = explainFailure(e, "leave")
+        }
     }
     var linkMessage by mutableStateOf<String?>(null)
 
@@ -95,10 +99,8 @@ class TripSettingsViewModel(private val graph: AppGraph, private val tripId: Str
             "New link made: ${graph.invites.reset(tripId).substringAfter("://")}. The old one no longer works."
         } catch (e: CancellationException) {
             throw e
-        } catch (e: SupabaseException) {
-            if (e.refused) e.message else "Can't reset the link right now. Check your connection and try again."
-        } catch (_: Exception) {
-            "Can't reset the link right now. Check your connection and try again."
+        } catch (e: Exception) {
+            explainFailure(e, "reset the link")
         }
     }
 
@@ -148,6 +150,7 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
     val detail by vm.detail.collectAsStateWithLifecycle()
     val rights by vm.rights.collectAsStateWithLifecycle()
     var confirmLeave by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(vm.left) { if (vm.left) onDeleted() }
     var datesOpen by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var confirmReset by rememberSaveable { mutableStateOf(false) }
@@ -168,7 +171,7 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
                 title = "Leave ${trip.name}?",
                 text = "The trip leaves this phone. Your sends stay in your logbook, and the invite link brings you back.",
                 confirmLabel = "Leave",
-                onConfirm = { confirmLeave = false; scope.launch { if (vm.leave()) onDeleted() } },
+                onConfirm = { confirmLeave = false; vm.leave() },
                 onDismiss = { confirmLeave = false },
             )
             CtConfirmDialog(

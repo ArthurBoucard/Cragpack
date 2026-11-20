@@ -210,17 +210,12 @@ begin
     return new;
 end $$;
 
--- Only organisers change roles, and a removed climber comes back only through an invite link (join_trip,
--- which runs as the function's owner, not as the climber).
+-- Roles and membership change only through the crew functions (003_crew.sql, 002_invites.sql), which run as
+-- their owner and keep the rules: a trip always has an organiser, a removed climber returns only by link.
 create or replace function trip_member_guard() returns trigger language plpgsql as $$
 begin
-    if current_user = 'authenticated' and not is_organiser(old.trip_id) then
-        if new.role is distinct from old.role then
-            raise exception 'Only organisers change roles' using errcode = '42501';
-        end if;
-        if old.deleted_at is not null and new.deleted_at is null then
-            raise exception 'Join again with an invite link' using errcode = '42501';
-        end if;
+    if current_user = 'authenticated' and (new.role is distinct from old.role or new.deleted_at is distinct from old.deleted_at) then
+        raise exception 'Crew changes go through Make organiser, Remove, Leave or an invite link' using errcode = '42501';
     end if;
     return new;
 end $$;
@@ -271,6 +266,11 @@ create or replace function is_organiser(t uuid) returns boolean language sql sta
     select exists (select 1 from trip_member where trip_id = t and user_id = auth.uid() and role = 'organiser' and deleted_at is null)
 $$;
 
+-- Was ever in the trip (left or removed included): their own climbs on it still go up (D2).
+create or replace function was_member(t uuid) returns boolean language sql stable security definer set search_path = public as $$
+    select exists (select 1 from trip_member where trip_id = t and user_id = auth.uid())
+$$;
+
 create or replace function owns_trip(t uuid) returns boolean language sql stable security definer set search_path = public as $$
     select exists (select 1 from trip where id = t and owner_id = auth.uid())
 $$;
@@ -310,7 +310,7 @@ create policy self_or_organiser_edit on trip_member for update
 
 -- Log entries are append-only per climber (D2): the crew reads them, only their climber writes them.
 create policy read on log_entry for select using (user_id = auth.uid() or (trip_id is not null and is_member(trip_id)));
-create policy own_add on log_entry for insert with check (user_id = auth.uid() and (trip_id is null or is_member(trip_id)));
+create policy own_add on log_entry for insert with check (user_id = auth.uid() and (trip_id is null or was_member(trip_id)));
 create policy own_edit on log_entry for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- A name is visible to yourself and to the people you share a trip with.

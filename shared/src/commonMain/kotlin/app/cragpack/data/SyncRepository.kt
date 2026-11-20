@@ -37,6 +37,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import app.cragpack.domain.plan.isPlanConflict
 
 /** What the status pill shows (tech spec §3): no account, or how many rows still wait to reach Supabase. */
 data class SyncState(val signedIn: Boolean, val pending: Int)
@@ -120,13 +121,16 @@ class SyncRepository internal constructor(
                     val values = row.jsonObject
                     val key = table.keys.joinToString("|") { values.getValue(it).jsonPrimitive.content }
                     if (table.name == "user" && key == me.value) return@forEach // my own name is mine to change
-                    writeRow(table, values, waiting[table.name to key].orEmpty())
+                    val mine = waiting[table.name to key].orEmpty()
+                    if (table.name == "plan_item" && "*" in mine && recordPlanConflict(key, values)) return@forEach
+                    writeRow(table, values, mine)
                 }
             }
             val cursor = pull.getValue("cursor").jsonPrimitive.content
             val mine = pull.getValue("trips").jsonArray.map { it.jsonPrimitive.content }.toSet()
             // A trip pulled before (it has a cursor) that the server no longer lists: I left or was removed.
             // Trips without a cursor were made here and haven't gone up yet: they stay.
+            // ponytail: media rows and their files stay behind; Storage management (Phase 3) clears them.
             db.syncQueries.selectCursors().executeAsList().map { it.name }.filter { it != ME && it !in mine }
                 .forEach { db.tripQueries.forgetTrip(tripId = it, me = me.value) }
             mine.forEach { db.syncQueries.putState(it, cursor) }
@@ -134,6 +138,24 @@ class SyncRepository internal constructor(
             db.syncQueries.deleteState(APPLYING)
         }
         driver.notifyListeners(*syncTables.map { it.name }.toTypedArray())
+    }
+
+    /**
+     * A plan move of mine waits to go up and theirs just came down: if we moved it to different days (tech spec §3),
+     * keep theirs aside for Sync conflict (19). Returns true when it did.
+     */
+    private fun recordPlanConflict(objectiveId: String, theirs: JsonObject): Boolean {
+        val base = db.syncQueries.selectPlanBase(objectiveId).executeAsOneOrNull() ?: return false
+        val mine = db.objectiveQueries.selectPlanItem(objectiveId).executeAsOneOrNull() ?: return false
+        fun JsonObject.text(key: String) = (get(key) as? JsonPrimitive)?.takeIf { it !is JsonNull }?.content
+        val theirDay = theirs.text("day_id").takeIf { theirs.text("deleted_at") == null }
+        val myDay = mine.day_id.takeIf { mine.deleted_at == null }
+        if (!isPlanConflict(base.day_id, myDay, theirDay)) return false
+        db.syncQueries.putConflict(
+            objectiveId, theirDay, theirs.text("order_key") ?: mine.order_key, theirs.getValue("updated_at").jsonPrimitive.long,
+            theirs.text("updated_by"),
+        )
+        return true
     }
 
     /** Adds the row if it's new, then sets every field that isn't waiting to be pushed from here. */
@@ -171,7 +193,9 @@ class SyncRepository internal constructor(
     private suspend fun push(api: Supabase, token: String) {
         val byTable = withContext(io) { db.syncQueries.selectOutbox().executeAsList() }.groupBy { it.tbl }
         for (table in syncTables) {
-            val entries = byTable[table.name] ?: continue
+            // A move held by an open conflict waits for the climber's choice (19).
+            val held = if (table.name == "plan_item") withContext(io) { db.syncQueries.selectConflictIds().executeAsList().toSet() } else emptySet()
+            val entries = byTable[table.name]?.filter { it.row_key !in held } ?: continue
             val newRows = mutableListOf<JsonObject>()
             val edits = mutableListOf<Pair<Map<String, String>, JsonObject>>()
             withContext(io) {
@@ -190,7 +214,11 @@ class SyncRepository internal constructor(
             // ponytail: one request per edited row; a push function on the server if this gets slow.
             edits.forEach { (keys, fields) -> unlessRefused { api.update(table.remote, keys, fields, token) } }
             // Only what was read: a field edited again meanwhile has a new id and waits for the next push.
-            withContext(io) { db.syncQueries.deleteSent(entries.map { it.id }) }
+            withContext(io) {
+                db.syncQueries.deleteSent(entries.map { it.id })
+                // Sent: the server now has my move, so it's the base any later conflict is measured against.
+                if (table.name == "plan_item") db.syncQueries.clearPlanBase(entries.map { it.row_key })
+            }
         }
     }
 

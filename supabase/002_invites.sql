@@ -89,11 +89,13 @@ begin
             role = case when trip_member.deleted_at is null then trip_member.role else 'member' end,
             deleted_at = null,
             updated_at = excluded.updated_at;
+    perform keep_an_organiser(joining); -- joining a trip everyone left: you look after it now
     return joining;
 end $$;
 
 -- Functions are open to everyone by default: only the preview is for people without an account.
 revoke all on table invite from anon, authenticated;
-revoke execute on function invite_token(uuid), reset_invite(uuid), join_trip(text), new_invite_token() from public, anon;
+revoke execute on function invite_token(uuid), reset_invite(uuid), join_trip(text) from public, anon;
+revoke execute on function new_invite_token() from public, anon, authenticated;
 grant execute on function invite_token(uuid), reset_invite(uuid), join_trip(text) to authenticated;
 grant execute on function invite_preview(text) to anon, authenticated;

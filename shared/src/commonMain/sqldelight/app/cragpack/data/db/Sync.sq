@@ -39,3 +39,72 @@ INSERT OR REPLACE INTO sync_state (name, data) VALUES (?, ?);
 
 deleteState:
 DELETE FROM sync_state WHERE name = ?;
+
+-- ── Sync conflict (19): two climbers moved the same objective to different days while offline ──
+
+-- Where an objective was before my first move since the last push: the "base" a conflict is measured against.
+-- Read before the move lands (INSERT OR REPLACE deletes the old row); kept until the push.
+CREATE TABLE plan_base (
+    objective_id TEXT NOT NULL PRIMARY KEY,
+    day_id TEXT                -- null = it wasn't planned
+);
+
+-- Filled by the plan_base triggers in SyncTables.kt.
+
+-- Their move, kept until I choose. My move waits in the outbox meanwhile.
+CREATE TABLE plan_conflict (
+    objective_id TEXT NOT NULL PRIMARY KEY,
+    day_id TEXT,               -- null = they unplanned it
+    order_key TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    updated_by TEXT
+);
+
+selectPlanBase:
+SELECT objective_id, day_id FROM plan_base WHERE objective_id = ?;
+
+clearPlanBase:
+DELETE FROM plan_base WHERE objective_id IN ?;
+
+putConflict:
+INSERT OR REPLACE INTO plan_conflict (objective_id, day_id, order_key, updated_at, updated_by) VALUES (?, ?, ?, ?, ?);
+
+selectConflictIds:
+SELECT objective_id FROM plan_conflict;
+
+-- Both sides of each conflict on one trip, ready for the sheet.
+selectConflicts:
+SELECT c.objective_id, o.name, o.grade_scale, o.grade_value,
+    CASE WHEN mine.deleted_at IS NULL THEN md.date END AS my_date, ms.name AS my_sector, mine.updated_at AS my_at,
+    td.date AS their_date, ts.name AS their_sector, c.updated_at AS their_at,
+    c.updated_by AS their_id, coalesce(u.name, '') AS their_name, coalesce(m.color_index, 1) AS their_color
+FROM plan_conflict c
+JOIN objective o ON o.id = c.objective_id
+JOIN plan_item mine ON mine.objective_id = c.objective_id
+LEFT JOIN day md ON md.id = mine.day_id
+LEFT JOIN sector ms ON ms.id = md.sector_id AND mine.deleted_at IS NULL
+LEFT JOIN day td ON td.id = c.day_id
+LEFT JOIN sector ts ON ts.id = td.sector_id
+LEFT JOIN user u ON u.id = c.updated_by
+LEFT JOIN trip_member m ON m.trip_id = o.trip_id AND m.user_id = c.updated_by
+WHERE o.trip_id = ?
+ORDER BY o.name;
+
+-- Keep mine: their move becomes the base, so my move simply goes up next and wins (last write wins).
+keepMine {
+    UPDATE plan_base SET day_id = (SELECT day_id FROM plan_conflict WHERE objective_id = :objectiveId) WHERE objective_id = :objectiveId;
+    DELETE FROM plan_conflict WHERE objective_id = :objectiveId;
+}
+
+-- Accept theirs: their move lands here and mine leaves the outbox. Written quietly, like a pull.
+acceptTheirs {
+    INSERT OR REPLACE INTO sync_state (name, data) VALUES ('applying', '1');
+    INSERT OR REPLACE INTO plan_item (objective_id, day_id, order_key, updated_at, deleted_at, updated_by)
+    SELECT c.objective_id, coalesce(c.day_id, p.day_id), c.order_key, c.updated_at, CASE WHEN c.day_id IS NULL THEN c.updated_at END, c.updated_by
+    FROM plan_conflict c JOIN plan_item p ON p.objective_id = c.objective_id
+    WHERE c.objective_id = :objectiveId;
+    DELETE FROM outbox WHERE tbl = 'plan_item' AND row_key = :objectiveId;
+    DELETE FROM plan_base WHERE objective_id = :objectiveId;
+    DELETE FROM plan_conflict WHERE objective_id = :objectiveId;
+    DELETE FROM sync_state WHERE name = 'applying';
+}

@@ -119,12 +119,17 @@ assert.equal((await as(TOM, `select color_index from trip_member where user_id =
 
 await assert.rejects(as(TOM, `select reset_invite('${TRIP}')`), /Only organisers/)
 
-// A member can't promote themselves, move their membership to another trip, or undo a removal.
-await assert.rejects(as(TOM, `update trip_member set role = 'organiser' where user_id = '${TOM}'`), /Only organisers/)
+// Crew changes only through the functions: no promoting yourself, moving your membership, or editing removals.
+await assert.rejects(as(TOM, `update trip_member set role = 'organiser' where user_id = '${TOM}'`), /Crew changes go through/)
 await assert.rejects(as(TOM, `update trip_member set trip_id = gen_random_uuid() where user_id = '${TOM}'`), /trip_id can't change/)
-await as(LEA, `update trip_member set deleted_at = 9 where user_id = '${TOM}'`) // the organiser removes Tom
+await assert.rejects(as(LEA, `update trip_member set deleted_at = 9 where user_id = '${LEA}'`), /Crew changes go through/)
+await as(LEA, `select remove_climber('${TRIP}', '${TOM}')`) // the organiser removes Tom
 assert.equal((await as(TOM, `select * from objective`)).rows.length, 0, 'removed: the trip is gone')
-await assert.rejects(as(TOM, `update trip_member set deleted_at = null where user_id = '${TOM}'`), /invite link/)
+// A climb Tom logged offline before being removed still reaches his logbook on the server (D2).
+await as(TOM, `insert into log_entry (id, user_id, style, date, trip_id, objective_id, snapshot_name, snapshot_grade_scale,
+  snapshot_grade_value, snapshot_crag, created_at, updated_at) values (gen_random_uuid(), '${TOM}', 'flash', '2026-04-18', '${TRIP}', '${OBJ}',
+  'La Joker', 'Font', '7A', 'Fontainebleau', 1, 1)`)
+await assert.rejects(as(TOM, `update trip_member set deleted_at = null where user_id = '${TOM}'`), /Crew changes go through/)
 assert.equal(await fn(TOM, `select join_trip('${token}')`), TRIP, '…until he joins again with the link')
 const fresh = await fn(LEA, `select reset_invite('${TRIP}')`)
 assert.notEqual(fresh, token)
@@ -150,8 +155,22 @@ assert.equal((await role(LEA)).role, 'organiser')
 
 await as(LEA, `select delete_account()`) // Léa was the last climber: the trip goes with her account
 assert.notEqual((await db.query(`select deleted_at from trip where id = '${TRIP}'`)).rows[0].deleted_at, null)
+assert.equal((await fn(null, `select invite_preview('${fresh}')`)).expired, true, 'and its link with it')
 assert.notEqual((await db.query(`select deleted_at from log_entry where id = '${LOG}'`)).rows[0].deleted_at, null)
 assert.equal((await db.query(`select * from auth.users where id = '${LEA}'`)).rows.length, 0)
 assert.equal((await db.query(`select * from profile where id = '${LEA}'`)).rows.length, 0)
+
+// ── Conflicts (004): the server says who moved a plan item, whatever the phone sends ──
+const TRIP2 = '00000000-0000-4000-8000-0000000000f2', OBJ2 = '00000000-0000-4000-8000-0000000000b2', DAY = '00000000-0000-4000-8000-0000000000d1'
+await as(TOM, `insert into trip (id, name, crag, start_date, end_date, owner_id, created_at, updated_at) values ('${TRIP2}', 'Magic Wood', 'Averstal', '2026-07-01', '2026-07-05', '${TOM}', 1, 1)`)
+await as(TOM, `insert into trip_member values ('${TRIP2}', '${TOM}', 'organiser', 1, 1, 1)`)
+await as(TOM, `insert into objective (id, trip_id, name, style, grade_scale, grade_value, created_by, created_at, updated_at)
+  values ('${OBJ2}', '${TRIP2}', 'Bügeleisen', 'boulder', 'Font', '7B', '${TOM}', 1, 1)`)
+await as(TOM, `insert into plan_item (objective_id, day_id, order_key, updated_at, updated_by) values ('${OBJ2}', '${DAY}', 'a', 1, '${LEA}')`)
+assert.equal((await db.query(`select updated_by from plan_item where objective_id = '${OBJ2}'`)).rows[0].updated_by, TOM)
+
+// Internal helpers aren't callable from the app.
+await assert.rejects(as(TOM, `select keep_an_organiser('${TRIP2}')`), /permission denied/)
+await assert.rejects(as(TOM, `select leave_as('${TRIP2}', '${TOM}')`), /permission denied/)
 
 console.log('supabase check: all good')

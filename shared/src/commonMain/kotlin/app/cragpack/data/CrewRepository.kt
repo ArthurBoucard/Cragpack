@@ -1,5 +1,6 @@
 package app.cragpack.data
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -24,6 +25,7 @@ class CrewRepository internal constructor(
         val token = account.accessToken() ?: throw SupabaseException("Sign in first", null)
         sync.syncNow() // my own pending edits to the trip go up first
         api.rpc(function, buildJsonObject { put("trip", tripId); userId?.let { put("climber", it) } }, token)
-        sync.syncNow()
+        // Done on the server; if this pull fails, the change shows with the next sync.
+        runCatching { sync.syncNow() }.onFailure { if (it is CancellationException) throw it }
     }
 }

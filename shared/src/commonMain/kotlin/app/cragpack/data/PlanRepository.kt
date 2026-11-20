@@ -3,7 +3,12 @@ package app.cragpack.data
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cragpack.data.db.CragpackDb
+import app.cragpack.domain.grade.Grade
+import app.cragpack.domain.grade.GradeScale
 import app.cragpack.domain.objective.Sector
+import app.cragpack.domain.plan.Move
+import app.cragpack.domain.plan.PlanConflict
+import app.cragpack.domain.trip.Person
 import app.cragpack.domain.plan.keyBetween
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -47,6 +52,27 @@ class PlanRepository internal constructor(private val db: CragpackDb, private va
         val t = now()
         db.objectiveQueries.setPlan(objectiveId, item.day_id, item.order_key, t, t)
     }
+
+    /** Sync conflicts (19) on this trip, waiting for my choice. */
+    fun observeConflicts(tripId: String): Flow<List<PlanConflict>> =
+        db.syncQueries.selectConflicts(tripId).asFlow().mapToList(io).map { rows ->
+            rows.map {
+                PlanConflict(
+                    it.objective_id, it.name, Grade(GradeScale.valueOf(it.grade_scale), it.grade_value),
+                    mine = Move(it.my_date?.let(LocalDate::parse), it.my_sector, it.my_at, by = null),
+                    theirs = Move(
+                        it.their_date?.let(LocalDate::parse), it.their_sector, it.their_at,
+                        by = it.their_id?.let { id -> Person(id, it.their_name, it.their_color.toInt()) },
+                    ),
+                )
+            }
+        }
+
+    /** Keep my move: it goes up with the next sync and wins. */
+    fun keepMine(objectiveId: String) = db.syncQueries.keepMine(objectiveId)
+
+    /** Take their move: it lands here, and mine is dropped. */
+    fun acceptTheirs(objectiveId: String) = db.syncQueries.acceptTheirs(objectiveId)
 
     fun updateDay(dayId: String, sectorId: String?, isRest: Boolean, notes: String) =
         db.tripQueries.updateDay(sectorId, if (isRest) 1 else 0, notes.trim(), now(), dayId)

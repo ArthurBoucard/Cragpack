@@ -3,7 +3,6 @@ package app.cragpack.feature.crew
 import app.cragpack.domain.trip.CrewMember
 import app.cragpack.designsystem.component.CtButtonSize
 import app.cragpack.designsystem.component.CtBottomSheet
-import app.cragpack.data.SupabaseException
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -45,6 +44,7 @@ import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.feature.LocalSyncStatus
+import app.cragpack.feature.explainFailure
 import app.cragpack.feature.account.AccountPromptSheet
 import app.cragpack.feature.account.AccountReason
 import app.cragpack.feature.rememberShareText
@@ -79,32 +79,40 @@ class CrewViewModel(private val graph: AppGraph, private val tripId: String) : V
         loading = viewModelScope.launch { link = LinkState.Loading; link = fetchLink() }
     }
 
-    /** Make organiser / Remove from trip; null when it worked, else what to tell the organiser. */
-    suspend fun change(action: suspend () -> Unit): String? = try {
-        action()
-        null
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: SupabaseException) {
-        if (e.refused) e.message else OFFLINE
-    } catch (_: Exception) {
-        OFFLINE
+    /** The climber whose sheet (31) is open; it closes once their change has worked. */
+    var climberId by mutableStateOf<String?>(null)
+    var sheetError by mutableStateOf<String?>(null)
+    var changing by mutableStateOf(false)
+
+    fun makeOrganiser(userId: String) = change { graph.crew.makeOrganiser(tripId, userId) }
+    fun remove(userId: String) = change { graph.crew.remove(tripId, userId) }
+
+    fun closeSheet() {
+        climberId = null
+        sheetError = null
     }
 
-    fun makeOrganiser(userId: String) = viewModelScope.launch { sheetError = change { graph.crew.makeOrganiser(tripId, userId) } }
-    fun remove(userId: String) = viewModelScope.launch { sheetError = change { graph.crew.remove(tripId, userId) } }
-    var sheetError by mutableStateOf<String?>(null)
+    private fun change(action: suspend () -> Unit) = viewModelScope.launch {
+        changing = true
+        sheetError = null
+        try {
+            action()
+            closeSheet()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            sheetError = explainFailure(e, "change the crew")
+        } finally {
+            changing = false
+        }
+    }
 
     private suspend fun fetchLink(): LinkState = try {
         LinkState.Ready(graph.invites.link(tripId))
     } catch (e: CancellationException) {
         throw e
-    } catch (_: Exception) {
-        LinkState.Failed("Can't get the link right now. Check your connection and try again.")
-    }
-
-    private companion object {
-        const val OFFLINE = "Can't change the crew right now. Check your connection and try again."
+    } catch (e: Exception) {
+        LinkState.Failed(explainFailure(e, "get the link"))
     }
 }
 
@@ -119,7 +127,6 @@ fun CrewScreen(vm: CrewViewModel, invite: Boolean, onBack: () -> Unit, onSetting
     val signedIn by vm.signedIn.collectAsStateWithLifecycle()
     var prompt by rememberSaveable { mutableStateOf(false) }
     var asked by rememberSaveable { mutableStateOf(false) } // came from + : ask once, not again after Not now
-    var climberId by rememberSaveable { mutableStateOf<String?>(null) }
     val iOrganise = crew.any { it.person.id == vm.myId && it.organiser }
     LaunchedEffect(signedIn) {
         if (signedIn == false && invite && !asked) {
@@ -131,11 +138,12 @@ fun CrewScreen(vm: CrewViewModel, invite: Boolean, onBack: () -> Unit, onSetting
         overlay = {
             AccountPromptSheet(AccountReason.Invite.takeIf { prompt }, onDismiss = { prompt = false }, onEmail = { prompt = false; onCreateAccount() })
             ClimberSheet(
-                climber = crew.firstOrNull { it.person.id == climberId },
+                climber = crew.firstOrNull { it.person.id == vm.climberId },
                 error = vm.sheetError,
+                busy = vm.changing,
                 onMakeOrganiser = { vm.makeOrganiser(it) },
-                onRemove = { vm.remove(it); climberId = null },
-                onDismiss = { climberId = null; vm.sheetError = null },
+                onRemove = { vm.remove(it) },
+                onDismiss = vm::closeSheet,
             )
         },
     ) { bottom ->
@@ -163,7 +171,7 @@ fun CrewScreen(vm: CrewViewModel, invite: Boolean, onBack: () -> Unit, onSetting
                 ListRow(
                     member.person.label,
                     // Organisers manage the crew (31); there's nothing to do on yourself, or without an account.
-                    onClick = { climberId = member.person.id }.takeIf { iOrganise && !me && signedIn == true },
+                    onClick = { vm.climberId = member.person.id }.takeIf { iOrganise && !me && signedIn == true },
                     meta = listOfNotNull("You".takeIf { me && member.person.name.isNotBlank() }, "Organiser".takeIf { member.organiser }).joinToString(" · ").ifEmpty { null },
                     leading = { Avatar(member.person.name, member.person.colorIndex, size = AvatarSize.Xl) },
                 )
@@ -206,6 +214,7 @@ private fun InviteLink(state: LinkState, onRetry: () -> Unit) {
 private fun BoxScope.ClimberSheet(
     climber: CrewMember?,
     error: String?,
+    busy: Boolean,
     onMakeOrganiser: (String) -> Unit,
     onRemove: (String) -> Unit,
     onDismiss: () -> Unit,
@@ -214,9 +223,9 @@ private fun BoxScope.ClimberSheet(
         val c = climber ?: return@CtBottomSheet
         // ponytail: their offline status (Saved / Saving 62%) arrives with the offline pack (Phase 3).
         if (!c.organiser) {
-            CtButton("Make organiser", { onMakeOrganiser(c.person.id) }, style = CtButtonStyle.Ghost, size = CtButtonSize.Wide, icon = LucideIcon.ShieldCheck)
+            CtButton("Make organiser", { onMakeOrganiser(c.person.id) }, style = CtButtonStyle.Ghost, size = CtButtonSize.Wide, icon = LucideIcon.ShieldCheck, enabled = !busy)
         }
-        CtButton("Remove from trip", { onRemove(c.person.id) }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide, icon = LucideIcon.UserMinus)
+        CtButton("Remove from trip", { onRemove(c.person.id) }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide, icon = LucideIcon.UserMinus, enabled = !busy)
         error?.let { CtText(it, color = CragpackTheme.colors.dangerInk) }
     }
 }

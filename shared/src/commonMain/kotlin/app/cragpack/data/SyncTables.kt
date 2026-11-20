@@ -52,7 +52,11 @@ internal val syncTables = listOf(
         ),
     ),
     SyncTable("interest", listOf("objective_id", "user_id"), cols("objective_id" to text, "user_id" to text, *stamps(created = false))),
-    SyncTable("plan_item", listOf("objective_id"), cols("objective_id" to text, "day_id" to text, "order_key" to text, *stamps(created = false))),
+    SyncTable(
+        "plan_item", listOf("objective_id"),
+        // updated_by: the server overwrites it with whoever pushed (supabase/004_conflicts.sql).
+        cols("objective_id" to text, "day_id" to text, "order_key" to text, *stamps(created = false), "updated_by" to text),
+    ),
     SyncTable(
         "beta_item", listOf("id"),
         cols(
@@ -96,6 +100,22 @@ internal fun outboxTriggers(): List<String> = syncTables.flatMap { t ->
         "CREATE TRIGGER outbox_${t.name}_update AFTER UPDATE ON ${t.name} WHEN $NOT_APPLYING$mine BEGIN\n$updates\nEND",
     )
 }
+
+/**
+ * Before my first unsynced move of an objective, remember the day it was on (plan_base, Sync.sq): a conflict is
+ * two moves away from that same day (tech spec §3). BEFORE, because INSERT OR REPLACE deletes the old row.
+ */
+internal fun planBaseTriggers(): List<String> = listOf(
+    "DROP TRIGGER IF EXISTS plan_base_on_place",
+    """CREATE TRIGGER plan_base_on_place BEFORE INSERT ON plan_item WHEN $NOT_APPLYING BEGIN
+      |INSERT OR IGNORE INTO plan_base (objective_id, day_id)
+      |SELECT NEW.objective_id, (SELECT day_id FROM plan_item WHERE objective_id = NEW.objective_id AND deleted_at IS NULL);
+      |END""".trimMargin(),
+    "DROP TRIGGER IF EXISTS plan_base_on_change",
+    """CREATE TRIGGER plan_base_on_change BEFORE UPDATE OF day_id, deleted_at ON plan_item WHEN $NOT_APPLYING BEGIN
+      |INSERT OR IGNORE INTO plan_base (objective_id, day_id) SELECT OLD.objective_id, CASE WHEN OLD.deleted_at IS NULL THEN OLD.day_id END;
+      |END""".trimMargin(),
+)
 
 /** Signing up uploads what's on the phone (D4): every row is queued whole. */
 internal fun queueEverything(): List<String> = syncTables.map { t ->

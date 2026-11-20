@@ -122,8 +122,9 @@ private fun AppNav(graph: AppGraph) {
             val token = entry.toRoute<JoinRoute>().token
             JoinScreen(
                 viewModel { JoinViewModel(graph, token) },
-                onJoined = { nav.open(TripRoute(it)) { popUpTo(TripsRoute) } },
-                onTrips = { nav.back(TripsRoute, inclusive = false) },
+                // Not nav.open: these fire once, possibly while the account screen is still closing.
+                onJoined = { nav.navigate(TripRoute(it)) { popUpTo(TripsRoute) } },
+                onTrips = { nav.popBackStack(TripsRoute, inclusive = false) },
                 onCreateAccount = { nav.open(AccountRoute) },
             )
         }
