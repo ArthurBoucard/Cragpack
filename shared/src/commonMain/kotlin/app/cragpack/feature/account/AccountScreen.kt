@@ -63,7 +63,11 @@ fun BoxScope.AccountPromptSheet(reason: AccountReason?, onDismiss: () -> Unit, o
     }
 }
 
-enum class AccountMode { Create, SignIn, CheckEmail }
+enum class AccountMode(val title: String, val action: String) {
+    Create("Create account", "Create account"),
+    SignIn("Sign in", "Sign in"),
+    CheckEmail("Check your email", "Sign in"),
+}
 
 data class AccountForm(
     val mode: AccountMode = AccountMode.Create,
@@ -107,10 +111,9 @@ class AccountViewModel(private val graph: AppGraph) : ViewModel() {
     }
 
     suspend fun resend() {
-        form = form.copy(
-            message = runCatching { graph.account.resendConfirmation(form.email) }
-                .fold({ "Sent again. Check your spam folder too." }, ::explain),
-            isError = false,
+        form = runCatching { graph.account.resendConfirmation(form.email) }.fold(
+            { form.copy(message = "Sent again. Check your spam folder too.", isError = false) },
+            { form.copy(message = explain(it), isError = true) },
         )
     }
 
@@ -124,6 +127,8 @@ class AccountViewModel(private val graph: AppGraph) : ViewModel() {
 /**
  * Create account (14), with its two design gaps: "I have an account" (sign in) and, while Supabase waits
  * for the email to be confirmed, a Check your email step that signs in with what was just typed.
+ * ponytail: the form lives in memory; if the phone kills the app while you're in your mail app,
+ * you come back to an empty form and sign in from "I have an account".
  */
 @Composable
 fun AccountScreen(vm: AccountViewModel, onBack: () -> Unit, onDone: () -> Unit) {
@@ -134,7 +139,7 @@ fun AccountScreen(vm: AccountViewModel, onBack: () -> Unit, onDone: () -> Unit) 
     CtScreen(
         dock = {
             CtaDock(
-                if (form.mode == AccountMode.Create) "Create account" else "Sign in",
+                form.mode.action,
                 LucideIcon.ArrowRight,
                 enabled = form.canSubmit,
                 onClick = { scope.launch { if (vm.submit()) onDone() } },
@@ -147,14 +152,7 @@ fun AccountScreen(vm: AccountViewModel, onBack: () -> Unit, onDone: () -> Unit) 
         ) {
             TopBar(
                 leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", back) },
-                center = {
-                    val title = when (form.mode) {
-                        AccountMode.Create -> "Create account"
-                        AccountMode.SignIn -> "Sign in"
-                        AccountMode.CheckEmail -> "Check your email"
-                    }
-                    CtText(title, style = CragpackTheme.type.title)
-                },
+                center = { CtText(form.mode.title, style = CragpackTheme.type.title) },
             )
             if (form.mode == AccountMode.CheckEmail) {
                 CtText("We sent a link to ${form.email.trim()}. Tap it to confirm your account, then come back here and sign in.")

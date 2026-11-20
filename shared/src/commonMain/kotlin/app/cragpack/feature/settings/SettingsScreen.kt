@@ -98,7 +98,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: (
                 ListRow(
                     signedIn.name.ifBlank { signedIn.email },
                     Modifier.padding(top = 8.dp),
-                    meta = signedIn.email,
+                    meta = "${signedIn.provider.replaceFirstChar { it.uppercase() }} · ${signedIn.email}",
                     leading = { Avatar(signedIn.name, 1, size = AvatarSize.Xl) },
                 )
             } else {
@@ -108,7 +108,9 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: (
                     meta = "Your trips stay on this phone",
                     onClick = { prompt = true }.takeIf { vm.accountsAvailable },
                     leading = { Avatar("", 1, size = AvatarSize.Xl) },
-                    trailing = { CtIcon(LucideIcon.ChevronRight, null, Modifier.padding(end = 10.dp), tint = CragpackTheme.colors.ink2) },
+                    trailing = if (vm.accountsAvailable) {
+                        { CtIcon(LucideIcon.ChevronRight, null, Modifier.padding(end = 10.dp), tint = CragpackTheme.colors.ink2) }
+                    } else null,
                 )
             }
             Section("Boulder grades")

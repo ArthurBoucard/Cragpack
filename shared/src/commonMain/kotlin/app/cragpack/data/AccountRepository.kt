@@ -1,5 +1,6 @@
 package app.cragpack.data
 
+import app.cash.sqldelight.TransactionWithoutReturn
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import app.cragpack.data.db.CragpackDb
@@ -12,7 +13,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-data class Account(val name: String, val email: String)
+data class Account(val name: String, val email: String, val provider: String)
 
 /**
  * The account behind this phone's user (D3, D4). Without one, everything stays on this phone.
@@ -32,7 +33,7 @@ class AccountRepository internal constructor(
     val available: Boolean get() = auth != null
 
     fun observe(): Flow<Account?> = db.userQueries.selectMe().asFlow().mapToOneOrNull(io).map { u ->
-        u?.takeIf { it.auth_provider != LOCAL }?.let { Account(it.name, it.email.orEmpty()) }
+        u?.takeIf { it.auth_provider != LOCAL }?.let { Account(it.name, it.email.orEmpty(), it.auth_provider) }
     }
 
     /** True once signed in; false when the email has to be confirmed first. */
@@ -56,7 +57,7 @@ class AccountRepository internal constructor(
                 db.userQueries.wipe()
                 db.settingQueries.forgetSession()
                 db.userQueries.insertMe(id, t, t)
-                me.value = id // before the commit wakes the screens up
+                switchTo(id)
             }
         }
         // ponytail: beta files stay in app storage, unreferenced; Storage management (Phase 3) clears them.
@@ -76,8 +77,15 @@ class AccountRepository internal constructor(
                 new = session.userId, old = me.value, name = session.name, email = session.email, provider = provider, now = now(),
             )
             save(session)
-            me.value = session.userId // before the commit wakes the screens up
+            switchTo(session.userId)
         }
+    }
+
+    /** Set before the commit wakes the screens up, so they already see the new id; put back on rollback. */
+    private fun TransactionWithoutReturn.switchTo(id: String) {
+        val old = me.value
+        me.value = id
+        afterRollback { me.value = old }
     }
 
     private fun save(session: Session) {

@@ -51,7 +51,7 @@ class AccountRepositoryTest {
         graph.account.signIn("lea@example.com", "secret")
 
         assertEquals(accountId, graph.myId)
-        assertEquals(Account("Léa", "lea@example.com"), graph.account.observe().first())
+        assertEquals(Account("Léa", "lea@example.com", "email"), graph.account.observe().first())
         assertEquals(accountId, graph.trips.observeTrips().first().single().crew.single().id)
         assertEquals(true, graph.objectives.observeWishlist(trip).first().single().starred)
         assertEquals(1, graph.logs.observeLogbook().first().size)

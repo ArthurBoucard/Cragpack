@@ -1,5 +1,5 @@
 -- One row per person this phone knows about. The device owner is created on first launch with
--- auth_provider = 'local' and keeps the same id after signing up (D4).
+-- auth_provider = 'local'; signing in swaps its id for the account's everywhere (adoptAccount, D4).
 CREATE TABLE user (
     id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL DEFAULT '',

@@ -1,6 +1,7 @@
 package app.cragpack.data
 
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -75,9 +76,9 @@ internal class SupabaseAuth(private val http: HttpClient, private val url: Strin
         return json
     }
 
-    private fun toSession(json: JsonObject): Session {
+    private fun toSession(json: JsonObject): Session = runCatching {
         val user = json.getValue("user").jsonObject
-        return Session(
+        Session(
             userId = user.string("id")!!,
             email = user.string("email").orEmpty(),
             name = user["user_metadata"]?.jsonObject?.string("name").orEmpty(),
@@ -85,7 +86,7 @@ internal class SupabaseAuth(private val http: HttpClient, private val url: Strin
             refreshToken = json.string("refresh_token")!!,
             expiresAt = json.getValue("expires_at").jsonPrimitive.long,
         )
-    }
+    }.getOrElse { throw AuthException("Supabase sent an answer the app doesn't understand", null) }
 
     private fun JsonObject.string(name: String) = (get(name) as? JsonPrimitive)?.takeIf { it.isString }?.content
 
@@ -93,6 +94,6 @@ internal class SupabaseAuth(private val http: HttpClient, private val url: Strin
         /** Null when this build has no Supabase keys in local.properties: the app stays on this phone. */
         fun fromConfig(): SupabaseAuth? =
             if (SupabaseConfig.URL.isBlank() || SupabaseConfig.KEY.isBlank()) null
-            else SupabaseAuth(HttpClient(), SupabaseConfig.URL.trimEnd('/'), SupabaseConfig.KEY)
+            else SupabaseAuth(HttpClient { install(HttpTimeout) { requestTimeoutMillis = 20_000 } }, SupabaseConfig.URL.trimEnd('/'), SupabaseConfig.KEY)
     }
 }
