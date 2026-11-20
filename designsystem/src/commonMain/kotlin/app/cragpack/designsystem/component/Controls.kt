@@ -5,9 +5,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +21,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,7 +38,6 @@ import androidx.compose.ui.unit.sp
 import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.theme.LocalContentColor
-import app.cragpack.designsystem.tokens.DarkColors
 import app.cragpack.designsystem.tokens.RadiusTokens
 import app.cragpack.designsystem.tokens.SizeTokens
 
@@ -108,25 +110,18 @@ fun CtSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, m
 @Composable
 fun StarToggle(on: Boolean, onToggle: () -> Unit, contentDescription: String, modifier: Modifier = Modifier) {
     val c = CragpackTheme.colors
-    val dark = c == DarkColors
     Box(
         modifier
             .size(SizeTokens.tap)
             .ctClickable(true, Role.Checkbox, CircleShape, onToggle)
             .semantics { this.contentDescription = contentDescription; selected = on }
             .clip(CircleShape)
-            .background(if (!on) c.surface2 else if (dark) c.accent else c.solid)
+            .background(if (on) c.accent else c.surface2)
             .then(if (on) Modifier else Modifier.border(1.dp, c.line, CircleShape)),
         contentAlignment = Alignment.Center,
     ) {
-        when {
-            !on -> CtIcon(LucideIcon.Star, null, tint = c.ink)
-            dark -> CtIcon(LucideIcon.StarFilled, null, tint = c.onAccent)
-            else -> {
-                CtIcon(LucideIcon.StarFilled, null, tint = c.accent)
-                CtIcon(LucideIcon.Star, null, tint = c.onSolid)
-            }
-        }
+        // On: an orange disc with a filled star, the same in both themes.
+        if (on) CtIcon(LucideIcon.StarFilled, null, tint = c.onAccent) else CtIcon(LucideIcon.Star, null, tint = c.ink)
     }
 }
 
@@ -235,36 +230,53 @@ fun QuantityBox(text: String, modifier: Modifier = Modifier) = Box(
     CtText(text, style = CragpackTheme.type.h3.copy(fontSize = 15.sp, lineHeight = 15.sp, letterSpacing = 0.sp), maxLines = 1)
 }
 
-/** `.days` / `.day` — one tab per trip day: the date over the sector (or Rest). Scrolls sideways. */
+/** One day in [DayTabs]: "Fri", "20", and where once it's planned (a sector, or Rest). */
+@Immutable
+data class DayTab(val weekday: String, val day: String, val place: String?, val today: Boolean = false)
+
+/**
+ * `.days` / `.day` — the trip as calendar days: weekday, a big day number, and the sector underneath.
+ * Days share the row's width when they fit and scroll sideways when they don't. Today reads "Today".
+ */
 @Composable
-fun DayTabs(days: List<Pair<String, String>>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun DayTabs(days: List<DayTab>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val c = CragpackTheme.colors
-    val shape = RoundedCornerShape(26.dp)
-    val state = rememberLazyListState(initialFirstVisibleItemIndex = (selected - 1).coerceAtLeast(0))
-    LazyRow(
-        modifier,
-        state = state,
-        contentPadding = PaddingValues(horizontal = SizeTokens.edge),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        items(days.size) { i ->
-            val (date, sector) = days[i]
-            val on = i == selected
-            val fg = if (on) c.onSolid else c.ink
-            Column(
-                Modifier
-                    .size(84.dp, 64.dp)
-                    .ctClickable(true, Role.Tab, shape) { onSelect(i) }
-                    .semantics { this.selected = on }
-                    .clip(shape)
-                    .background(if (on) c.solid else c.surface)
-                    .then(if (on) Modifier else Modifier.border(1.dp, c.line, shape))
-                    .padding(horizontal = 6.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                CtText(date, style = CragpackTheme.type.label.copy(fontWeight = FontWeight.Medium), color = if (on) fg else c.ink2, maxLines = 1)
-                CtText(sector, style = semibold.copy(fontWeight = FontWeight.Bold), color = fg, maxLines = 1)
+    val shape = RoundedCornerShape(RadiusTokens.md)
+    val gap = 6.dp
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val tile = max(72.dp, (maxWidth - SizeTokens.edge * 2 - gap * (days.size - 1)) / days.size.coerceAtLeast(1))
+        // Opens with the selected day second from the left, so the day before it still shows.
+        val start = with(LocalDensity.current) { ((tile + gap) * (selected - 1).coerceAtLeast(0)).roundToPx() }
+        val anyPlace = days.any { it.place != null }
+        Row(
+            Modifier.horizontalScroll(rememberScrollState(start)).padding(horizontal = SizeTokens.edge),
+            horizontalArrangement = Arrangement.spacedBy(gap),
+        ) {
+            days.forEachIndexed { i, d ->
+                val on = i == selected
+                val soft = if (on) c.onSolid else c.ink2
+                Column(
+                    Modifier
+                        .size(tile, 84.dp)
+                        .ctClickable(true, Role.Tab, shape) { onSelect(i) }
+                        .semantics { this.selected = on }
+                        .clip(shape)
+                        .background(if (on) c.solid else c.surface)
+                        .then(if (on) Modifier else Modifier.border(1.dp, c.line, shape))
+                        .padding(horizontal = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    CtText(
+                        if (d.today) "Today" else d.weekday,
+                        style = CragpackTheme.type.label,
+                        color = if (d.today && !on) c.accentInk else soft,
+                        maxLines = 1,
+                    )
+                    CtText(d.day, style = CragpackTheme.type.h3.copy(fontSize = 22.sp, lineHeight = 24.sp), color = if (on) c.onSolid else c.ink, maxLines = 1)
+                    // Once any day has a place, every tile keeps the line so the numbers line up.
+                    if (anyPlace) CtText(d.place.orEmpty(),style = CragpackTheme.type.label.copy(fontWeight = FontWeight.Medium), color = soft, maxLines = 1)
+                }
             }
         }
     }

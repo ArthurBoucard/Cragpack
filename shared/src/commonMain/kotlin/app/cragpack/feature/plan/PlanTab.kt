@@ -39,6 +39,7 @@ import app.cragpack.designsystem.component.CtIcon
 import app.cragpack.designsystem.component.CtIconButton
 import app.cragpack.designsystem.component.CtRadioRow
 import app.cragpack.designsystem.component.CtText
+import app.cragpack.designsystem.component.DayTab
 import app.cragpack.designsystem.component.DayTabs
 import app.cragpack.designsystem.component.EmptyState
 import app.cragpack.designsystem.component.GradeChip
@@ -52,6 +53,7 @@ import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.format.formatWeekday
+import app.cragpack.domain.format.weekdayName
 import app.cragpack.feature.text
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -64,7 +66,7 @@ import sh.calvin.reorderable.ReorderableColumn
 data class PlanUi(val days: List<PlanDay>, val byDay: Map<String, List<Objective>>, val unplanned: List<Objective>)
 
 class PlanViewModel(private val graph: AppGraph, tripId: String) : ViewModel() {
-    private val today = graph.today()
+    val today = graph.today()
 
     /** null while loading. */
     val state = combine(
@@ -125,7 +127,13 @@ fun PlanTab(vm: PlanViewModel, bottom: PaddingValues, onBack: () -> Unit, onEdit
                 )
                 CtText("Plan", Modifier.padding(top = 24.dp, start = 4.dp, end = 4.dp, bottom = 14.dp), style = CragpackTheme.type.h1)
             }
-            DayTabs(state.days.map(::dayLabel), state.days.indexOf(day), { vm.selectedDay = state.days[it].id })
+            DayTabs(
+                state.days.map { d ->
+                    DayTab(weekdayName(d.date), "${d.date.day}", if (d.isRest) "Rest" else d.sector?.name, today = d.date == vm.today)
+                },
+                state.days.indexOf(day),
+                { vm.selectedDay = state.days[it].id },
+            )
             Column(Modifier.padding(start = SizeTokens.edge, end = SizeTokens.edge, top = 14.dp), verticalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
                 DayCard(day) { onEditDay(day.id) }
                 if (day.notes.isNotBlank()) {

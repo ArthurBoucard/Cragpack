@@ -103,7 +103,7 @@ Text on bands 1–7 and 9 is #1c1814. The full Font↔V table and sort indexes a
 | `.photo`, `.hero`, `.pcard` | `PhotoSurface`, `PhotoHero`, `PhotoCard` | always dark scrim, text at the bottom |
 | `.media` | `BetaThumb` | 108×128; `add` variant; online-only dot |
 | `.ring`, `.meter`, `.ticks` | `ProgressRing`, `ProgressBar`, `SegmentedProgress` | accent on a surface2 track |
-| `.days`, `.day` | `DayTabs` | date and sector, or Rest; scrolls sideways |
+| `.days`, `.day` | `DayTabs` | calendar days: weekday (or Today), day number, sector or Rest; share the width, scroll when they don't fit |
 | `.drop`, `.drag`, `.grip` | drag-and-drop states | dashed accent slot, lifted card tilted −3° |
 | `.tray`, `.pick` | `UnplannedTray` | floating, scrolls sideways; each item has a + |
 | `.dock` | `TabDock` | 5 tabs; the current tab is an accent pill |
