@@ -161,7 +161,8 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
     CtScreen(
         statusBarStrip = false,
         dock = {
-            if (ui != null) LogDock(
+            // Hidden under the media viewer, so nothing of it shows or reaches a screen reader there.
+            if (ui != null && viewing == null) LogDock(
                 listOf(if (attempts > 0) "Attempt · $attempts" else "Attempt", "Sent", "Flash"),
                 on = when { LogStyle.Flash in mine -> 2; LogStyle.Sent in mine -> 1; else -> null },
                 onClick = { vm.log(LogStyle.entries[it]) },
