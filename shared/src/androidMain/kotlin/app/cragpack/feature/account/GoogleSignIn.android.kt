@@ -6,6 +6,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import app.cragpack.data.SupabaseConfig
 import app.cragpack.data.newId
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
@@ -27,6 +29,11 @@ actual fun rememberGoogleSignIn(): GoogleSignIn? {
                 IdToken(GoogleIdTokenCredential.createFrom(result.credential.data).idToken, nonce)
             } catch (_: GetCredentialCancellationException) {
                 null
+            } catch (_: NoCredentialException) {
+                throw GoogleSignInUnavailable("There's no Google account on this phone. Add one in the phone's settings, or continue with email.")
+            } catch (e: GetCredentialException) {
+                // Often a set-up problem (client id or SHA-1, see README): say so instead of blaming the connection.
+                throw GoogleSignInUnavailable("Google sign-in isn't working on this phone (${e.type}). Continue with email for now.")
             }
         }
     }

@@ -52,9 +52,9 @@ class AccountRepository internal constructor(
 
     suspend fun signIn(email: String, password: String) = adopt(auth().signIn(email.trim(), password), "email")
 
-    /** Google (and later Apple): the phone got an ID token from the provider's own sign-in. */
-    suspend fun signInWithIdToken(provider: String, idToken: String, nonce: String) =
-        adopt(auth().signInWithIdToken(provider, idToken, nonce), provider)
+    /** The phone got an ID token from Google's own sign-in; [nonce] is the raw one whose hash Google signed in. */
+    suspend fun signInWithGoogle(idToken: String, nonce: String) =
+        adopt(auth().signInWithIdToken("google", idToken, nonce), "google")
 
     suspend fun resendConfirmation(email: String) = auth().resendConfirmation(email.trim())
 

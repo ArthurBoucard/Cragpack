@@ -51,6 +51,13 @@ Without them the app builds and runs on this phone only (no accounts).
 Before changing them, check them locally: `npm i --no-save @electric-sql/pglite && node supabase/check.mjs`.
 A synced table changes in three places: its `.sq` file, `SyncTables.kt` and the SQL.
 
+**Google sign-in (Android):** in Google Cloud Console → APIs & Services → Credentials, create two OAuth clients:
+a *Web application* one, and an *Android* one for package `app.cragpack` with the debug keystore's SHA-1
+`09:4E:75:34:27:9E:6B:3A:F8:BB:29:55:8A:8E:5F:C7:80:23:F8:D9` (add the release key's later).
+In Supabase → Authentication → Providers → Google, turn it on and paste the Web client's id and secret.
+Then put the Web client id in `local.properties` as `google.webClientId=…`; without it there's no Google button.
+Sign in with Apple and Google on iOS come later (a paid Apple developer account, and the SDKs added in Xcode).
+
 ## Rules
 
 - **Dependencies point inward:** `feature -> domain <- data`. Screens read the local database only, never the network. Exceptions: YouTube preview images, which are online only like the videos themselves (D9), and the actions that only work with the server: invite links (get, reset, preview, join), crew changes (make organiser, remove, leave) and Delete account. Those show a loading and a "can't right now" state.

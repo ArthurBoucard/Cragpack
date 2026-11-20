@@ -5,8 +5,11 @@ import androidx.compose.runtime.Composable
 /** An ID token from the phone's own Google sign-in, and the raw nonce whose hash Google signed into it. */
 class IdToken(val token: String, val nonce: String)
 
+/** Google's sign-in couldn't run on this phone (no Google account, no Play services); [message] says what to do. */
+class GoogleSignInUnavailable(message: String) : Exception(message)
+
 fun interface GoogleSignIn {
-    /** Shows Google's account picker; null if the person closed it. */
+    /** Shows Google's account picker; null if the person closed it. Throws [GoogleSignInUnavailable]. */
     suspend fun idToken(): IdToken?
 }
 

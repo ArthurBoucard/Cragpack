@@ -133,10 +133,13 @@ fun JoinScreen(vm: JoinViewModel, onJoined: (tripId: String) -> Unit, onTrips: (
             statusBarStrip = false,
             dock = (state as? JoinState.Open)?.let { { CtaDock("Join trip", LucideIcon.ArrowRight, { vm.onJoin() }, enabled = !vm.joining) } },
             overlay = {
-                AccountPromptSheet(AccountReason.Join.takeIf { prompt }, onDismiss = { vm.askingForAccount = false }, onEmail = {
-                    prompt = false
-                    onCreateAccount()
-                })
+                AccountPromptSheet(
+                    AccountReason.Join.takeIf { prompt },
+                    onDismiss = { vm.askingForAccount = false },
+                    onEmail = { prompt = false; onCreateAccount() },
+                    // Signed in with Google: the view model sees the account and joins (which closes the sheet).
+                    onSignedIn = {},
+                )
             },
         ) {
             when (state) {

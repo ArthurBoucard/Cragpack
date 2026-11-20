@@ -33,7 +33,7 @@ class AccountRepositoryTest {
             "user":{"id":"$accountId","email":"lea@example.com","user_metadata":{"name":"Léa"}}}"""
         val (status, body) = when (path) {
             "signup" -> HttpStatusCode.OK to if (signupConfirms) """{"id":"$accountId","email":"lea@example.com"}""" else session
-            "token?grant_type=password", "token?grant_type=refresh_token" -> HttpStatusCode.OK to session
+            "token?grant_type=password", "token?grant_type=refresh_token", "token?grant_type=id_token" -> HttpStatusCode.OK to session
             "logout" -> HttpStatusCode.NoContent to ""
             "rest/v1/rpc/delete_account" -> HttpStatusCode.NoContent to ""
             else -> HttpStatusCode.BadRequest to """{"code":400,"error_code":"invalid_credentials","msg":"Invalid login credentials"}"""
@@ -56,6 +56,17 @@ class AccountRepositoryTest {
         assertEquals(accountId, graph.trips.observeTrips().first().single().crew.single().id)
         assertEquals(true, graph.objectives.observeWishlist(trip).first().single().starred)
         assertEquals(1, graph.logs.observeLogbook().first().size)
+    }
+
+    @Test
+    fun googleSignInKeepsThePhonesTripsToo() = runTest {
+        graph.trips.create("Font Easter", "Fontainebleau", LocalDate.parse("2026-04-17"), LocalDate.parse("2026-04-21"))
+
+        graph.account.signInWithGoogle("id-token", "raw-nonce")
+
+        assertEquals("token?grant_type=id_token", calls.last())
+        assertEquals(Account("Léa", "lea@example.com", "google"), graph.account.observe().first())
+        assertEquals(accountId, graph.trips.observeTrips().first().single().crew.single().id)
     }
 
     @Test

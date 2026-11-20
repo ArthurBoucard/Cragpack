@@ -54,43 +54,52 @@ enum class AccountReason(val title: String) {
     Sync("Create an account to sync your phones"),
 }
 
-/** The account repository, for the account prompt's Google button (provided by App()). */
-val LocalAccount = staticCompositionLocalOf<AccountRepository?> { null }
+/** The account, for the Google button inside sheets and screens (provided by App()). */
+val LocalAccount = staticCompositionLocalOf<AccountRepository> { error("App() provides LocalAccount") }
 
 /**
  * Account prompt (13): only before an action that needs others or the cloud (D4). ✕ = Not now.
- * Google signs in right here (the screen behind carries on once there's an account); email opens Create account.
+ * Google signs in right here, then [onSignedIn] (by default the sheet just closes; Join keeps its pending join);
+ * email opens Create account.
  * ponytail: Sign in with Apple needs a paid Apple developer account; the Terms / Privacy line waits for the policy (Phase 5).
  */
 @Composable
-fun BoxScope.AccountPromptSheet(reason: AccountReason?, onDismiss: () -> Unit, onEmail: () -> Unit) {
-    val google = rememberGoogleSignIn()
+fun BoxScope.AccountPromptSheet(reason: AccountReason?, onDismiss: () -> Unit, onEmail: () -> Unit, onSignedIn: () -> Unit = onDismiss) {
+    CtBottomSheet(reason != null, reason?.title.orEmpty(), onDismiss) {
+        CtText("Your trips on this phone come with you.", color = CragpackTheme.colors.ink2)
+        GoogleButton(onSignedIn)
+        CtButton("Continue with email", onEmail, style = CtButtonStyle.Ghost, size = CtButtonSize.Wide, icon = LucideIcon.Mail)
+    }
+}
+
+/** "Continue with Google", where this phone has Google's sign-in (README: Google sign-in). Shows its own errors. */
+@Composable
+private fun GoogleButton(onSignedIn: () -> Unit) {
+    val google = rememberGoogleSignIn() ?: return
     val account = LocalAccount.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
-    var error by remember(reason) { mutableStateOf<String?>(null) }
-    CtBottomSheet(reason != null, reason?.title.orEmpty(), onDismiss) {
-        CtText("Your trips on this phone come with you.", color = CragpackTheme.colors.ink2)
-        if (google != null && account != null) {
-            CtButton("Continue with Google", {
-                scope.launch {
-                    busy = true
-                    error = try {
-                        google.idToken()?.let { account.signInWithIdToken("google", it.token, it.nonce); onDismiss() }
-                        null
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        explainFailure(e, "sign in with Google")
-                    } finally {
-                        busy = false
-                    }
-                }
-            }, size = CtButtonSize.Wide, enabled = !busy)
+    var error by remember { mutableStateOf<String?>(null) }
+    // ponytail: plain button as in mock 13; Google's brand rules want their "G" logo, check before release.
+    CtButton("Continue with Google", {
+        scope.launch {
+            busy = true
+            error = null
+            error = try {
+                google.idToken()?.let { account.signInWithGoogle(it.token, it.nonce); onSignedIn() }
+                null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: GoogleSignInUnavailable) {
+                e.message
+            } catch (e: Exception) {
+                explainFailure(e, "sign in with Google")
+            } finally {
+                busy = false
+            }
         }
-        CtButton("Continue with email", onEmail, style = CtButtonStyle.Ghost, size = CtButtonSize.Wide, icon = LucideIcon.Mail)
-        error?.let { CtText(it, color = CragpackTheme.colors.dangerInk) }
-    }
+    }, size = CtButtonSize.Wide, enabled = !busy)
+    error?.let { CtText(it, color = CragpackTheme.colors.dangerInk) }
 }
 
 enum class AccountMode(val title: String, val action: String) {
@@ -189,6 +198,7 @@ fun AccountScreen(vm: AccountViewModel, onBack: () -> Unit, onDone: () -> Unit) 
                 CtButton("Resend email", { scope.launch { vm.resend() } }, style = CtButtonStyle.Ghost, size = CtButtonSize.Sm)
             } else {
                 Fields(vm, form)
+                if (form.mode == AccountMode.SignIn) GoogleButton(onSignedIn = onDone) // design gap: "plus Apple and Google"
                 val other = if (form.mode == AccountMode.Create) AccountMode.SignIn else AccountMode.Create
                 CtButton(
                     if (other == AccountMode.SignIn) "I have an account" else "Create an account",
