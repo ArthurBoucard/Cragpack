@@ -48,7 +48,11 @@ class AppGraph internal constructor(driver: SqlDriver, private val clock: Clock,
     val sync = SyncRepository(db, driver, supabase, account, me)
     val invites = InviteRepository(supabase, account, sync)
 
-    /** An invite link the phone opened the app with (Android App Links), waiting for the UI to show Join. */
+    /**
+     * An invite link the phone opened the app with (Android App Links), waiting for the UI to show Join.
+     * ponytail: iOS needs Universal Links (an associated domain, so the real domain and a paid Apple account);
+     * until then iOS joins through Paste invite link.
+     */
     val openedInvite = MutableStateFlow<String?>(null)
 
     fun openLink(url: String?) {

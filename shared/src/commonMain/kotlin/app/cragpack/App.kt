@@ -68,7 +68,7 @@ import kotlinx.serialization.Serializable
 @Serializable private data class EditDayRoute(val tripId: String, val dayId: String)
 @Serializable private data object LogSendRoute
 @Serializable private data object AccountRoute
-@Serializable private data class CrewRoute(val tripId: String)
+@Serializable private data class CrewRoute(val tripId: String, val invite: Boolean = false)
 @Serializable private data class JoinRoute(val token: String)
 
 /** Root of the app on both platforms. Trips home is the root (docs/03 navigation model). */
@@ -93,7 +93,8 @@ private fun AppNav(graph: AppGraph) {
     // An invite link the app was opened with: show Join on top of whatever is open.
     val opened by graph.openedInvite.collectAsState()
     LaunchedEffect(opened) {
-        opened?.let { nav.navigate(JoinRoute(it)); graph.openedInvite.value = null }
+        // Not nav.open: a link must never be dropped because a transition is running.
+        opened?.let { nav.navigate(JoinRoute(it)) { launchSingleTop = true }; graph.openedInvite.value = null }
     }
     NavHost(nav, startDestination = TripsRoute) {
         composable<TripsRoute> {
@@ -108,9 +109,10 @@ private fun AppNav(graph: AppGraph) {
             )
         }
         composable<CrewRoute> { entry ->
-            val tripId = entry.toRoute<CrewRoute>().tripId
+            val (tripId, invite) = entry.toRoute<CrewRoute>()
             CrewScreen(
                 viewModel { CrewViewModel(graph, tripId) },
+                invite = invite,
                 onBack = { nav.back() },
                 onSettings = { nav.open(TripSettingsRoute(tripId)) },
                 onCreateAccount = { nav.open(AccountRoute) },
@@ -146,6 +148,7 @@ private fun AppNav(graph: AppGraph) {
                 onEditDay = { nav.open(EditDayRoute(id, it)) },
                 onSettings = { nav.open(TripSettingsRoute(id)) },
                 onCrew = { nav.open(CrewRoute(id)) },
+                onInvite = { nav.open(CrewRoute(id, invite = true)) },
             )
         }
         composable<ObjectiveFormRoute> { entry ->

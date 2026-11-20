@@ -49,7 +49,12 @@ create or replace function invite_preview(token text) returns jsonb language sql
     else jsonb_build_object(
         'expired', false,
         'trip_id', t.id, 'name', t.name, 'crag', t.crag, 'start_date', t.start_date, 'end_date', t.end_date,
-        'inviter', coalesce((select p.name from profile p where p.id = i.created_by), ''),
+        -- "Léa invited you": the trip's longest-standing organiser (any climber can share the one link).
+        'inviter', coalesce((
+            select jsonb_build_object('name', coalesce(p.name, ''), 'color_index', m.color_index)
+            from trip_member m left join profile p on p.id = m.user_id
+            where m.trip_id = t.id and m.role = 'organiser' and m.deleted_at is null order by m.joined_at limit 1
+        ), jsonb_build_object('name', '', 'color_index', 1)),
         'crew', coalesce((
             select jsonb_agg(jsonb_build_object('name', coalesce(p.name, ''), 'color_index', m.color_index) order by m.joined_at)
             from trip_member m left join profile p on p.id = m.user_id
@@ -75,9 +80,15 @@ begin
     if joining is null then
         raise exception 'This link has expired' using errcode = 'P0001', hint = 'invite_expired';
     end if;
+    perform pg_advisory_xact_lock(hashtext(joining::text)); -- one join per trip at a time: colours stay in order
+    -- A removed climber can come back while the link is live; an organiser who wants them out resets it.
     insert into trip_member (trip_id, user_id, role, color_index, joined_at, updated_at)
         values (joining, auth.uid(), 'member', (select count(*) from trip_member m where m.trip_id = joining) % 5 + 1, joined, joined)
-        on conflict (trip_id, user_id) do update set deleted_at = null, updated_at = excluded.updated_at;
+        -- Coming back after leaving or being removed: as a member, whatever the role was before.
+        on conflict (trip_id, user_id) do update set
+            role = case when trip_member.deleted_at is null then trip_member.role else 'member' end,
+            deleted_at = null,
+            updated_at = excluded.updated_at;
     return joining;
 end $$;
 

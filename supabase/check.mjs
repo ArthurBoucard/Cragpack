@@ -107,7 +107,7 @@ await assert.rejects(as(null, `select join_trip('${token}')`), /permission denie
 await assert.rejects(as(null, `select * from invite`), /permission denied/)
 
 const preview = await fn(null, `select invite_preview('${token}')`) // no account needed to see it
-assert.deepEqual([preview.expired, preview.name, preview.inviter, preview.crew.length], [false, 'Font Easter!', 'Léa', 1])
+assert.deepEqual([preview.expired, preview.name, preview.inviter.name, preview.inviter.color_index, preview.crew.length], [false, 'Font Easter!', 'Léa', 1, 1])
 assert.equal(await fn(null, `select invite_preview('nope')`), null)
 
 assert.equal(await fn(TOM, `select join_trip('${token}')`), TRIP)
@@ -130,5 +130,28 @@ const fresh = await fn(LEA, `select reset_invite('${TRIP}')`)
 assert.notEqual(fresh, token)
 assert.equal((await fn(null, `select invite_preview('${token}')`)).expired, true)
 await assert.rejects(as(TOM, `select join_trip('${token}')`), /expired/)
+
+// ── Crew (003) ──
+const role = async (user) => (await db.query(`select role, deleted_at from trip_member where trip_id = '${TRIP}' and user_id = '${user}'`)).rows[0]
+await assert.rejects(as(TOM, `select make_organiser('${TRIP}', '${TOM}')`), /Only organisers/)
+await as(LEA, `select make_organiser('${TRIP}', '${TOM}')`)
+assert.equal((await role(TOM)).role, 'organiser')
+
+await as(LEA, `select leave_trip('${TRIP}')`)
+assert.equal((await as(LEA, `select * from objective`)).rows.length, 0, 'left: the trip is gone')
+await assert.rejects(as(LEA, `select remove_climber('${TRIP}', '${TOM}')`), /Only organisers/)
+
+await fn(LEA, `select join_trip('${fresh}')`) // back as a plain member
+await assert.rejects(as(LEA, `update trip set deleted_at = 1 where id = '${TRIP}'`), /Only organisers can delete/)
+await assert.rejects(as(TOM, `select remove_climber('${TRIP}', '${TOM}')`), /Leave trip/)
+
+await as(TOM, `select leave_trip('${TRIP}')`) // the last organiser goes: Léa, the longest-standing climber, takes over
+assert.equal((await role(LEA)).role, 'organiser')
+
+await as(LEA, `select delete_account()`) // Léa was the last climber: the trip goes with her account
+assert.notEqual((await db.query(`select deleted_at from trip where id = '${TRIP}'`)).rows[0].deleted_at, null)
+assert.notEqual((await db.query(`select deleted_at from log_entry where id = '${LOG}'`)).rows[0].deleted_at, null)
+assert.equal((await db.query(`select * from auth.users where id = '${LEA}'`)).rows.length, 0)
+assert.equal((await db.query(`select * from profile where id = '${LEA}'`)).rows.length, 0)
 
 console.log('supabase check: all good')

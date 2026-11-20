@@ -1,5 +1,7 @@
 package app.cragpack.data
 
+import app.cragpack.domain.invite.InviteExpiredException
+import app.cragpack.domain.invite.InvitePreview
 import app.cragpack.domain.invite.inviteLink
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.JsonNull
@@ -11,21 +13,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-
-/** What Join (10) shows about a trip before joining it. */
-data class InvitePreview(
-    val tripId: String,
-    val name: String,
-    val crag: String,
-    val start: LocalDate,
-    val end: LocalDate,
-    val inviter: String,
-    /** Name and crew colour, in join order. */
-    val crew: List<Pair<String, Int>>,
-)
-
-/** The link is dead: reset by an organiser, or the trip was deleted (Invite expired, 17). */
-class InviteExpiredException : Exception("This link has expired")
 
 /**
  * Invite links (tech spec §5), through the functions in supabase/002_invites.sql. Online only:
@@ -51,19 +38,22 @@ class InviteRepository internal constructor(
         return InvitePreview(
             tripId = text("trip_id"), name = text("name"), crag = text("crag"),
             start = LocalDate.parse(text("start_date")), end = LocalDate.parse(text("end_date")),
-            inviter = text("inviter"),
+            inviter = p.getValue("inviter").jsonObject.let { it.getValue("name").jsonPrimitive.content to it.getValue("color_index").jsonPrimitive.int },
             crew = p.getValue("crew").jsonArray.map { (it as JsonObject).let { m -> m.getValue("name").jsonPrimitive.content to m.getValue("color_index").jsonPrimitive.int } },
         )
     }
 
-    /** Joins and brings the whole trip onto this phone. Returns its id. */
+    /**
+     * Joins, then tries to bring the whole trip onto this phone. Returns its id. If that first pull fails
+     * (the connection dropped just after joining), you're still in: the trip arrives with a later sync.
+     */
     suspend fun join(token: String): String {
         val tripId = try {
             api().rpc("join_trip", buildJsonObject { put("token", token) }, signedIn()).jsonPrimitive.content
         } catch (e: SupabaseException) {
             throw if (e.code == "invite_expired") InviteExpiredException() else e
         }
-        sync.syncNow()
+        runCatching { sync.syncNow() }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
         return tripId
     }
 

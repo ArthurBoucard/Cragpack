@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,8 +26,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.cragpack.data.AppGraph
-import app.cragpack.data.InviteExpiredException
-import app.cragpack.data.InvitePreview
 import app.cragpack.designsystem.component.Avatar
 import app.cragpack.designsystem.component.AvatarSize
 import app.cragpack.designsystem.component.AvatarStack
@@ -38,18 +37,18 @@ import app.cragpack.designsystem.component.CtText
 import app.cragpack.designsystem.component.CtaDock
 import app.cragpack.designsystem.component.LightStatusBarIcons
 import app.cragpack.designsystem.component.PhotoSurface
-import app.cragpack.designsystem.component.dashedBorder
+import app.cragpack.designsystem.component.EmptyState
 import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.RadiusTokens
 import app.cragpack.designsystem.tokens.SizeTokens
 import app.cragpack.domain.format.formatDateRange
+import app.cragpack.domain.invite.InviteExpiredException
+import app.cragpack.domain.invite.InvitePreview
 import app.cragpack.feature.account.AccountPromptSheet
 import app.cragpack.feature.account.AccountReason
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 sealed interface JoinState {
@@ -63,10 +62,25 @@ class JoinViewModel(private val graph: AppGraph, private val token: String) : Vi
     var state by mutableStateOf<JoinState>(JoinState.Loading)
     var joining by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
-    val signedIn = graph.account.observe().map { it != null }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** The account prompt is up: join as soon as there's an account. */
+    var askingForAccount by mutableStateOf(false)
+
+    /** Set once joined: the screen moves on. [where] is the trip, or null when it isn't on the phone yet. */
+    var joined by mutableStateOf<Joined?>(null)
+
+    class Joined(val where: String?)
 
     init {
         load()
+        viewModelScope.launch {
+            graph.account.observeSignedIn().collect { signedIn -> if (signedIn && askingForAccount) join() }
+        }
+    }
+
+    /** The dock's Join trip: straight in with an account, through the account prompt without one (D4). */
+    fun onJoin() = viewModelScope.launch {
+        if (graph.account.observeSignedIn().first()) join() else askingForAccount = true
     }
 
     fun load() = viewModelScope.launch {
@@ -82,20 +96,20 @@ class JoinViewModel(private val graph: AppGraph, private val token: String) : Vi
         }
     }
 
-    /** The trip's id once joined and on this phone; null if it didn't work (the state or [error] says why). */
-    suspend fun join(): String? {
+    private suspend fun join() {
+        if (joining) return
+        askingForAccount = false
         joining = true
         error = null
-        return try {
-            graph.invites.join(token)
+        try {
+            val trip = graph.invites.join(token)
+            joined = Joined(trip.takeIf { graph.trips.observeTrip(it).first() != null })
         } catch (e: CancellationException) {
             throw e
         } catch (_: InviteExpiredException) {
             state = JoinState.Expired
-            null
         } catch (_: Exception) {
             error = "Can't join right now. Check your connection and try again."
-            null
         } finally {
             joining = false
         }
@@ -109,29 +123,16 @@ class JoinViewModel(private val graph: AppGraph, private val token: String) : Vi
  */
 @Composable
 fun JoinScreen(vm: JoinViewModel, onJoined: (tripId: String) -> Unit, onTrips: () -> Unit, onCreateAccount: () -> Unit) {
-    val signedIn by vm.signedIn.collectAsStateWithLifecycle()
     var prompt by rememberSaveable { mutableStateOf(false) }
-    var joinAfterSignIn by rememberSaveable { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    fun join() {
-        if (signedIn != true) {
-            joinAfterSignIn = true
-            prompt = true
-        } else if (!vm.joining) scope.launch { vm.join()?.let(onJoined) }
-    }
-    LaunchedEffect(signedIn) {
-        if (signedIn == true && joinAfterSignIn) {
-            joinAfterSignIn = false
-            vm.join()?.let(onJoined)
-        }
-    }
+    LaunchedEffect(vm.askingForAccount) { prompt = vm.askingForAccount }
+    LaunchedEffect(vm.joined) { vm.joined?.let { it.where?.let(onJoined) ?: onTrips() } }
     when (val state = vm.state) {
         JoinState.Expired -> Expired(onTrips)
         else -> CtScreen(
             statusBarStrip = false,
-            dock = (state as? JoinState.Open)?.let { { CtaDock("Join trip", LucideIcon.ArrowRight, ::join, enabled = !vm.joining) } },
+            dock = (state as? JoinState.Open)?.let { { CtaDock("Join trip", LucideIcon.ArrowRight, { vm.onJoin() }, enabled = !vm.joining) } },
             overlay = {
-                AccountPromptSheet(AccountReason.Join.takeIf { prompt }, onDismiss = { prompt = false; joinAfterSignIn = false }, onEmail = {
+                AccountPromptSheet(AccountReason.Join.takeIf { prompt }, onDismiss = { vm.askingForAccount = false }, onEmail = {
                     prompt = false
                     onCreateAccount()
                 })
@@ -142,7 +143,7 @@ fun JoinScreen(vm: JoinViewModel, onJoined: (tripId: String) -> Unit, onTrips: (
                 JoinState.Unavailable -> Message("Can't open this link right now", "Check your connection and try again.") {
                     CtButton("Try again", { vm.load() }, style = CtButtonStyle.Ghost)
                 }
-                else -> Message("Opening the invite…", null)
+                else -> Message("Opening the invite…")
             }
         }
     }
@@ -152,12 +153,13 @@ fun JoinScreen(vm: JoinViewModel, onJoined: (tripId: String) -> Unit, onTrips: (
 private fun Invitation(p: InvitePreview, error: String?) {
     LightStatusBarIcons()
     Column(verticalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
-        PhotoSurface(Modifier.fillMaxWidth().height(500.dp), RoundedCornerShape(bottomStart = RadiusTokens.xl, bottomEnd = RadiusTokens.xl)) {
+        PhotoSurface(Modifier.fillMaxWidth().fillMaxHeight(0.6f), RoundedCornerShape(bottomStart = RadiusTokens.xl, bottomEnd = RadiusTokens.xl)) {
             CtText("Cragpack", Modifier.statusBarsPadding().padding(SizeTokens.edge), style = CragpackTheme.type.title)
             Column(Modifier.align(Alignment.BottomStart).padding(SizeTokens.edge), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Avatar(p.inviter, p.crew.firstOrNull { it.first == p.inviter }?.second ?: 1)
-                    CtText(if (p.inviter.isBlank()) "You're invited" else "${p.inviter} invited you")
+                    val (inviter, color) = p.inviter
+                    Avatar(inviter, color)
+                    CtText(if (inviter.isBlank()) "You're invited" else "$inviter invited you")
                 }
                 CtText(p.name, Modifier.padding(top = 8.dp), style = CragpackTheme.type.titleXl)
                 CtText(listOf(p.crag, formatDateRange(p.start, p.end)).filter { it.isNotBlank() }.joinToString(" · "))
@@ -176,21 +178,13 @@ private fun Expired(onTrips: () -> Unit) {
     }
 }
 
+/** The wordmark, then a message in the middle (Invite expired and the in-between states). */
 @Composable
-private fun Message(title: String, text: String?, icon: LucideIcon? = null, action: (@Composable () -> Unit)? = null) {
+private fun Message(title: String, text: String? = null, icon: LucideIcon? = null, action: (@Composable () -> Unit)? = null) {
     Column(Modifier.fillMaxSize().statusBarsPadding().padding(SizeTokens.edge)) {
         CtText("Cragpack", style = CragpackTheme.type.title)
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Column(
-                Modifier.fillMaxWidth().height(360.dp).dashedBorder(CragpackTheme.colors.ink, RadiusTokens.lg).padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
-            ) {
-                icon?.let { CtIcon(it, null) }
-                CtText(title, style = CragpackTheme.type.h3, textAlign = TextAlign.Center)
-                text?.let { CtText(it, color = CragpackTheme.colors.ink2, textAlign = TextAlign.Center) }
-                action?.invoke()
-            }
+            EmptyState(title, Modifier.fillMaxWidth().fillMaxHeight(0.55f), text = text, icon = icon, action = action)
         }
     }
 }

@@ -95,6 +95,7 @@ fun TripScreen(
     onEditDay: (String) -> Unit,
     onSettings: () -> Unit,
     onCrew: () -> Unit,
+    onInvite: () -> Unit,
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -111,7 +112,7 @@ fun TripScreen(
         when (tab) {
             0 -> {
                 LightStatusBarIcons()
-                Overview(state, bottom.calculateBottomPadding(), onBack, onSettings, onCrew, onTab = { tab = it })
+                Overview(state, bottom.calculateBottomPadding(), onBack, onSettings, onCrew, onInvite, onTab = { tab = it })
             }
             1 -> WishlistTab(wishlist, bottom, onBack, onAddObjective, onOpenObjective)
             2 -> PlanTab(plan, bottom, onBack, onEditDay, onOpenObjective)
@@ -128,6 +129,7 @@ private fun Overview(
     onBack: () -> Unit,
     onSettings: () -> Unit,
     onCrew: () -> Unit,
+    onInvite: () -> Unit,
     onTab: (Int) -> Unit,
 ) {
     val (trip, crew, stats) = ui.detail
@@ -150,7 +152,7 @@ private fun Overview(
                 CtText(place, Modifier.padding(top = 8.dp, bottom = 16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     AvatarStack(crew.map { it.name to it.colorIndex }, Modifier.clickable(onClickLabel = "Crew", role = Role.Button, onClick = onCrew), size = AvatarSize.Xl)
-                    CtIconButton(LucideIcon.Plus, "Invite", onCrew, style = CtIconButtonStyle.On)
+                    CtIconButton(LucideIcon.Plus, "Invite", onInvite, style = CtIconButtonStyle.On)
                 }
             }
         }

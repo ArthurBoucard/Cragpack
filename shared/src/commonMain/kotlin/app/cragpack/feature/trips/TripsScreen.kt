@@ -1,5 +1,8 @@
 package app.cragpack.feature.trips
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalClipboardManager
+import app.cragpack.domain.invite.INVITE_HOST
 import app.cragpack.domain.invite.inviteToken
 import app.cragpack.designsystem.component.CtTextField
 import app.cragpack.designsystem.component.CtButtonStyle
@@ -186,10 +189,14 @@ private fun PhotoCard(modifier: Modifier, cover: String?, onClick: () -> Unit, c
 private fun BoxScope.PasteLinkSheet(visible: Boolean, onDismiss: () -> Unit, onJoin: (token: String) -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
     var wrong by rememberSaveable { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
+    LaunchedEffect(visible) {
+        if (visible && text.isEmpty()) clipboard.getText()?.text?.takeIf { inviteToken(it) != null }?.let { text = it.trim() }
+    }
     CtBottomSheet(visible, "Join a trip", onDismiss) {
         CtTextField(
             text, { text = it; wrong = false }, "Invite link",
-            placeholder = "cragpack.app/j/…",
+            placeholder = "$INVITE_HOST/j/…",
             keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Uri),
         )
         if (wrong) CtText("That isn't a Cragpack invite link. Copy the whole link and paste it again.", color = CragpackTheme.colors.dangerInk)

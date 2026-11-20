@@ -30,6 +30,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.cragpack.data.AppGraph
 import app.cragpack.data.MediaFiles
+import app.cragpack.data.SupabaseException
+import kotlinx.coroutines.CancellationException
 import app.cragpack.designsystem.component.CtButton
 import app.cragpack.designsystem.component.CtButtonSize
 import app.cragpack.designsystem.component.CtButtonStyle
@@ -67,14 +69,21 @@ class TripSettingsViewModel(private val graph: AppGraph, private val tripId: Str
     val detail = graph.trips.observeTrip(tripId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Organisers with an account reset the invite link (tech spec §5). */
-    val canResetLink = combine(graph.account.observe(), graph.trips.observeCrew(tripId)) { account, crew ->
-        account != null && crew.any { it.person.id == graph.myId && it.organiser }
+    val canResetLink = combine(graph.account.observeSignedIn(), graph.trips.observeCrew(tripId)) { signedIn, crew ->
+        signedIn && crew.any { it.person.id == graph.myId && it.organiser }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     var linkMessage by mutableStateOf<String?>(null)
 
     fun resetLink() = viewModelScope.launch {
-        linkMessage = runCatching { graph.invites.reset(tripId) }
-            .fold({ "New link made: ${it.substringAfter("://")}. The old one no longer works." }, { "Can't reset the link right now. Check your connection and try again." })
+        linkMessage = try {
+            "New link made: ${graph.invites.reset(tripId).substringAfter("://")}. The old one no longer works."
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: SupabaseException) {
+            if (e.refused) e.message else "Can't reset the link right now. Check your connection and try again."
+        } catch (_: Exception) {
+            "Can't reset the link right now. Check your connection and try again."
+        }
     }
 
     // The text fields own their text while typing; each change is saved (screen 29: "changes save automatically").
@@ -124,6 +133,7 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
     val canResetLink by vm.canResetLink.collectAsStateWithLifecycle()
     var datesOpen by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var confirmReset by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val cover = rememberFilePickerLauncher(FileKitType.Image) { file -> if (file != null) vm.setCover(file) }
     val d = detail ?: run { CtScreen {}; return }
@@ -135,6 +145,14 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
                 visible = datesOpen, start = trip.start, end = trip.end, today = vm.today,
                 onDone = { s, e -> vm.changeDates(s, e); datesOpen = false },
                 onDismiss = { datesOpen = false },
+            )
+            CtConfirmDialog(
+                visible = confirmReset,
+                title = "Reset the invite link?",
+                text = "The current link stops working. Share the new one with anyone who hasn't joined yet.",
+                confirmLabel = "Reset",
+                onConfirm = { confirmReset = false; vm.resetLink() },
+                onDismiss = { confirmReset = false },
             )
             CtConfirmDialog(
                 visible = confirmDelete,
@@ -170,9 +188,8 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
             if (canResetLink) {
                 ListRow(
                     "Invite link",
-                    meta = "Reset it and the old link stops working",
                     leading = { Box(Modifier.size(SizeTokens.tapSm), contentAlignment = Alignment.Center) { CtIcon(LucideIcon.Link, null) } },
-                    trailing = { CtButton("Reset", vm::resetLink, style = CtButtonStyle.Ghost, icon = LucideIcon.RefreshCw) },
+                    trailing = { CtButton("Reset", { confirmReset = true }, style = CtButtonStyle.Ghost, icon = LucideIcon.RefreshCw) },
                 )
                 vm.linkMessage?.let { CtText(it, Modifier.padding(horizontal = 8.dp), color = CragpackTheme.colors.ink2) }
             }

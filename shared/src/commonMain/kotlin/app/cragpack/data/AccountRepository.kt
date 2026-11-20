@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -34,6 +35,8 @@ class AccountRepository internal constructor(
 
     /** False in builds without Supabase keys: accounts can't be created there. */
     val available: Boolean get() = auth != null
+
+    fun observeSignedIn(): Flow<Boolean> = observe().map { it != null }.distinctUntilChanged()
 
     fun observe(): Flow<Account?> = db.userQueries.selectMe().asFlow().mapToOneOrNull(io).map { u ->
         u?.takeIf { it.auth_provider != LOCAL }?.let { Account(it.name, it.email.orEmpty(), it.auth_provider) }

@@ -187,12 +187,20 @@ fun BigNumber(value: String, unit: String? = null, modifier: Modifier = Modifier
     }
 }
 
-/** `.empty` — inside a dashed card: a title and one action. */
+/** `.empty` — inside a dashed card: an optional icon, a title, an optional line of text and one action. */
 @Composable
-fun EmptyState(title: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
+fun EmptyState(
+    title: String,
+    modifier: Modifier = Modifier,
+    text: String? = null,
+    icon: LucideIcon? = null,
+    action: (@Composable () -> Unit)? = null,
+) {
     Box(modifier.dashedBorder(CragpackTheme.colors.ink, RadiusTokens.lg).padding(24.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            icon?.let { CtIcon(it, null) }
             CtText(title, style = CragpackTheme.type.h3, textAlign = TextAlign.Center)
+            text?.let { CtText(it, color = CragpackTheme.colors.ink2, textAlign = TextAlign.Center) }
             action?.invoke()
         }
     }

@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -43,9 +44,9 @@ import app.cragpack.feature.account.AccountPromptSheet
 import app.cragpack.feature.account.AccountReason
 import app.cragpack.feature.rememberShareText
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -59,33 +60,46 @@ class CrewViewModel(private val graph: AppGraph, private val tripId: String) : V
     val crew = graph.trips.observeCrew(tripId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Null until known, so the invite area doesn't flash the wrong state. */
-    val signedIn = graph.account.observe().map { it != null }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val signedIn = graph.account.observeSignedIn().stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val myId get() = graph.myId
     var link by mutableStateOf<LinkState>(LinkState.Loading)
+    private var loading: Job? = null
 
-    fun loadLink() = viewModelScope.launch {
-        link = LinkState.Loading
-        link = try {
-            LinkState.Ready(graph.invites.link(tripId))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            LinkState.Failed("Can't get the link right now. Check your connection and try again.")
-        }
+    init {
+        viewModelScope.launch { graph.account.observeSignedIn().collect { if (it) loadLink() } }
+    }
+
+    fun loadLink() {
+        loading?.cancel()
+        loading = viewModelScope.launch { link = LinkState.Loading; link = fetchLink() }
+    }
+
+    private suspend fun fetchLink(): LinkState = try {
+        LinkState.Ready(graph.invites.link(tripId))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        LinkState.Failed("Can't get the link right now. Check your connection and try again.")
     }
 }
 
 /**
- * Crew and invite (07). Inviting needs an account (D4): without one, the invite area opens the account prompt,
- * and once signed in the link appears here.
+ * Crew and invite (07). Inviting needs an account (D4): without one, + on the trip opens the account prompt
+ * here straight away (and the invite area does too); once signed in, the link appears.
  * ponytail: each climber's offline status (Saved / Saving 62%) arrives with the offline pack (Phase 3).
  */
 @Composable
-fun CrewScreen(vm: CrewViewModel, onBack: () -> Unit, onSettings: () -> Unit, onCreateAccount: () -> Unit) {
+fun CrewScreen(vm: CrewViewModel, invite: Boolean, onBack: () -> Unit, onSettings: () -> Unit, onCreateAccount: () -> Unit) {
     val crew by vm.crew.collectAsStateWithLifecycle()
     val signedIn by vm.signedIn.collectAsStateWithLifecycle()
     var prompt by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(signedIn) { if (signedIn == true) vm.loadLink() }
+    var asked by rememberSaveable { mutableStateOf(false) } // came from + : ask once, not again after Not now
+    LaunchedEffect(signedIn) {
+        if (signedIn == false && invite && !asked) {
+            asked = true
+            prompt = true
+        }
+    }
     CtScreen(
         overlay = {
             AccountPromptSheet(AccountReason.Invite.takeIf { prompt }, onDismiss = { prompt = false }, onEmail = { prompt = false; onCreateAccount() })
@@ -128,7 +142,7 @@ private fun InviteLink(state: LinkState, onRetry: () -> Unit) {
     val clipboard = LocalClipboardManager.current
     val share = rememberShareText()
     val scope = rememberCoroutineScope()
-    var copied by rememberSaveable { mutableStateOf(false) }
+    var copied by remember { mutableStateOf(false) }
     when (state) {
         LinkState.Loading -> CtText("Getting the invite link…", Modifier.padding(start = 8.dp), color = CragpackTheme.colors.ink2)
         is LinkState.Failed -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {

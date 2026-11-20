@@ -17,7 +17,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <!-- Invite links (tech spec §5). ponytail: autoVerify and the site's assetlinks.json once the
-                 domain is ours (D13); until then Android opens them in the browser unless the app is picked. -->
+                 domain is ours (D13). Until then Android 12+ opens them in the browser (the app only gets them if
+                 the link is added under App info → Open by default), so Paste invite link is the way in. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

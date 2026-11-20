@@ -1,5 +1,6 @@
 package app.cragpack.data
 
+import app.cragpack.domain.invite.InviteExpiredException
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -28,7 +29,7 @@ class InviteRepositoryTest {
                 "user":{"id":"$lea","email":"lea@example.com","user_metadata":{"name":"Léa"}}}"""
             "invite_token" -> "\"$token\""
             "invite_preview" -> if (expired) """{"expired":true}""" else """{"expired":false,"trip_id":"$trip","name":"Font Easter",
-                "crag":"Fontainebleau","start_date":"2026-04-17","end_date":"2026-04-21","inviter":"Léa",
+                "crag":"Fontainebleau","start_date":"2026-04-17","end_date":"2026-04-21","inviter":{"name":"Léa","color_index":1},
                 "crew":[{"name":"Léa","color_index":1},{"name":"Tom","color_index":2}]}"""
             "join_trip" -> if (expired) return@MockEngine respond(
                 """{"code":"P0001","message":"This link has expired","hint":"invite_expired"}""", HttpStatusCode.BadRequest,
