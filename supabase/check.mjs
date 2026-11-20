@@ -15,14 +15,18 @@ await db.exec(`
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create role authenticated;
-  grant usage on schema auth to authenticated;
+  create role anon;
+  grant usage on schema auth to authenticated, anon;
 `)
 for (const file of readdirSync(dir).filter(f => f.endsWith('.sql')).sort()) {
   await db.exec(readFileSync(new URL(file, dir), 'utf8'))
 }
-await db.exec(`grant usage on schema public to authenticated;
-  grant select, insert, update on all tables in schema public to authenticated;
-  grant execute on all functions in schema public to authenticated;`)
+// Supabase's defaults: both roles may use every table and function; the access rules and revokes decide.
+await db.exec(`grant usage on schema public to authenticated, anon;
+  grant select, insert, update on all tables in schema public to authenticated, anon;`)
+for (const file of readdirSync(dir).filter(f => f.endsWith('.sql')).sort()) {
+  await db.exec(readFileSync(new URL(file, dir), 'utf8')) // again, so each file's revokes win over the grants above
+}
 
 const LEA = '00000000-0000-4000-8000-00000000000a'
 const TOM = '00000000-0000-4000-8000-00000000000b'
@@ -30,9 +34,9 @@ const TRIP = '00000000-0000-4000-8000-0000000000f1'
 const OBJ = '00000000-0000-4000-8000-0000000000b1'
 await db.exec(`insert into auth.users values ('${LEA}'), ('${TOM}')`)
 
-/** Runs sql as the given signed-in user, like PostgREST does. */
+/** Runs sql as the given signed-in user (or anon without one), like PostgREST does. */
 async function as(user, sql, params = []) {
-  await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${user}', false);`)
+  await db.exec(`set role ${user ? 'authenticated' : 'anon'}; select set_config('request.jwt.claim.sub', '${user ?? ''}', false);`)
   try { return await db.query(sql, params) } finally { await db.exec('reset role') }
 }
 const fails = async (user, sql) => assert.rejects(as(user, sql), /row-level security|violates/, sql)
@@ -44,15 +48,24 @@ await as(LEA, `insert into trip (id, name, crag, start_date, end_date, owner_id,
   on conflict (id) do update set name = excluded.name`) // the phone's push is always an upsert
 await as(LEA, `insert into trip_member values ('${TRIP}', '${LEA}', 'organiser', 1, 1, 1)
   on conflict (trip_id, user_id) do update set role = excluded.role`)
+await fails(LEA, `insert into objective (id, trip_id, name, style, grade_scale, grade_value, created_by, created_at, updated_at)
+  values (gen_random_uuid(), '${TRIP}', 'Forged', 'boulder', 'Font', '6A', '${TOM}', 1, 1)`) // made by someone else? no
 await as(LEA, `insert into objective (id, trip_id, name, style, grade_scale, grade_value, created_by, created_at, updated_at)
   values ('${OBJ}', '${TRIP}', 'La Joker', 'boulder', 'Font', '7A', '${LEA}', 1, 1)`)
 await as(LEA, `insert into interest (objective_id, user_id, updated_at) values ('${OBJ}', '${LEA}', 1)`)
 assert.equal((await as(LEA, `select trip_id from interest`)).rows[0].trip_id, TRIP, 'interest takes its trip from the objective')
 
-// Upsert of a field (what the phone's push does) works for a member.
-await as(LEA, `insert into trip (id, name, crag, start_date, end_date, owner_id, created_at, updated_at)
-  values ('${TRIP}', 'Font Easter!', 'Fontainebleau', '2026-04-17', '2026-04-21', '${LEA}', 1, 2)
-  on conflict (id) do update set name = excluded.name, updated_at = excluded.updated_at`)
+// An edit is pushed as an update of just the changed fields (PostgREST PATCH), like the phone does.
+assert.equal((await as(LEA, `update trip set name = 'Font Easter!', updated_at = 2 where id = '${TRIP}'`)).affectedRows, 1)
+await assert.rejects(as(LEA, `update trip set owner_id = '${TOM}' where id = '${TRIP}'`), /owner_id can't change/)
+
+// A logged climb can be undone (deleted_at) but not rewritten.
+const LOG = '00000000-0000-4000-8000-0000000000c1'
+await as(LEA, `insert into log_entry (id, user_id, style, date, trip_id, objective_id, snapshot_name, snapshot_grade_scale,
+  snapshot_grade_value, snapshot_crag, created_at, updated_at) values ('${LOG}', '${LEA}', 'sent', '2026-04-18', '${TRIP}', '${OBJ}',
+  'La Joker', 'Font', '7A', 'Fontainebleau', 1, 1) on conflict (id) do update set style = excluded.style`)
+assert.equal((await as(LEA, `update log_entry set deleted_at = 3, updated_at = 3 where id = '${LOG}'`)).affectedRows, 1)
+await assert.rejects(as(LEA, `update log_entry set style = 'flash' where id = '${LOG}'`), /only be undone/)
 
 // Tom isn't in the trip: he sees nothing and can't write into it or add himself.
 assert.equal((await as(TOM, `select * from trip`)).rows.length, 0)
@@ -84,5 +97,38 @@ const later = await pull(LEA, { [TRIP]: new Date().toISOString(), me: new Date()
 assert.equal(later.trip.length + later.objective.length, 0)
 const tom = await pull(TOM, {})
 assert.deepEqual([tom.trips, tom.trip, tom.objective], [[], [], []])
+
+// ── Invites (002) ──
+const fn = async (user, sql) => Object.values((await as(user, sql)).rows[0])[0]
+const token = await fn(LEA, `select invite_token('${TRIP}')`)
+assert.equal(await fn(LEA, `select invite_token('${TRIP}')`), token, 'one live link per trip')
+await assert.rejects(as(TOM, `select invite_token('${TRIP}')`), /crew can invite/)
+await assert.rejects(as(null, `select join_trip('${token}')`), /permission denied|Sign in/)
+await assert.rejects(as(null, `select * from invite`), /permission denied/)
+
+const preview = await fn(null, `select invite_preview('${token}')`) // no account needed to see it
+assert.deepEqual([preview.expired, preview.name, preview.inviter, preview.crew.length], [false, 'Font Easter!', 'Léa', 1])
+assert.equal(await fn(null, `select invite_preview('nope')`), null)
+
+assert.equal(await fn(TOM, `select join_trip('${token}')`), TRIP)
+assert.equal(await fn(TOM, `select join_trip('${token}')`), TRIP, 'joining twice is harmless')
+assert.equal((await as(TOM, `select * from objective`)).rows.length, 1, 'a new member sees the trip')
+const tomPull = await pull(TOM, {})
+assert.deepEqual([tomPull.trips, tomPull.objective.length, tomPull.profile.length], [[TRIP], 1, 1])
+assert.equal((await as(TOM, `select color_index from trip_member where user_id = '${TOM}'`)).rows[0].color_index, 2)
+
+await assert.rejects(as(TOM, `select reset_invite('${TRIP}')`), /Only organisers/)
+
+// A member can't promote themselves, move their membership to another trip, or undo a removal.
+await assert.rejects(as(TOM, `update trip_member set role = 'organiser' where user_id = '${TOM}'`), /Only organisers/)
+await assert.rejects(as(TOM, `update trip_member set trip_id = gen_random_uuid() where user_id = '${TOM}'`), /trip_id can't change/)
+await as(LEA, `update trip_member set deleted_at = 9 where user_id = '${TOM}'`) // the organiser removes Tom
+assert.equal((await as(TOM, `select * from objective`)).rows.length, 0, 'removed: the trip is gone')
+await assert.rejects(as(TOM, `update trip_member set deleted_at = null where user_id = '${TOM}'`), /invite link/)
+assert.equal(await fn(TOM, `select join_trip('${token}')`), TRIP, '…until he joins again with the link')
+const fresh = await fn(LEA, `select reset_invite('${TRIP}')`)
+assert.notEqual(fresh, token)
+assert.equal((await fn(null, `select invite_preview('${token}')`)).expired, true)
+await assert.rejects(as(TOM, `select join_trip('${token}')`), /expired/)
 
 console.log('supabase check: all good')

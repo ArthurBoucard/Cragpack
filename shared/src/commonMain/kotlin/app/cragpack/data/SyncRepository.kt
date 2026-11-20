@@ -1,7 +1,6 @@
 package app.cragpack.data
 
-import app.cash.sqldelight.coroutines.asFlow
-import app.cash.sqldelight.coroutines.mapToOne
+import app.cash.sqldelight.Query
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
@@ -14,13 +13,16 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -53,8 +55,17 @@ class SyncRepository internal constructor(
     private val me: StateFlow<String>,
 ) {
     private val io = Dispatchers.IO
-    private val running = Mutex()
-    private val pending = db.syncQueries.countPending().asFlow().mapToOne(io).map { it.toInt() }
+    /**
+     * The outbox is filled by triggers SQLDelight doesn't know about, so it never hears of those writes:
+     * count again whenever any synced table (or the outbox itself) changes.
+     */
+    private val pending: Flow<Int> = callbackFlow {
+        val listener = Query.Listener { trySend(Unit) }
+        val tables = syncTables.map { it.name }.toTypedArray() + "outbox"
+        driver.addListener(*tables, listener = listener)
+        send(Unit)
+        awaitClose { driver.removeListener(*tables, listener = listener) }
+    }.conflate().map { db.syncQueries.countPending().executeAsOne().toInt() }.flowOn(io).distinctUntilChanged()
 
     fun observe(): Flow<SyncState> = combine(account.observe().map { it != null }, pending) { signedIn, n -> SyncState(signedIn, n) }
 
@@ -77,11 +88,11 @@ class SyncRepository internal constructor(
     }
 
     /** One pull and push. Throws when offline or when Supabase refuses; nothing is lost, the outbox keeps it. */
-    suspend fun syncNow() = running.withLock {
+    suspend fun syncNow() = account.session.withLock {
         val api = supabase ?: return@withLock
         val token = account.accessToken() ?: return@withLock
         withContext(io) { queueUploadOnce() }
-        apply(api.rpc("sync_pull", buildJsonObject { put("cursors", JsonObject(withContext(io) { cursors() })) }, token))
+        applyPull(api.rpc("sync_pull", buildJsonObject { put("cursors", JsonObject(withContext(io) { cursors() })) }, token).jsonObject)
         push(api, token)
     }
 
@@ -99,16 +110,17 @@ class SyncRepository internal constructor(
 
     // ── Pull ───────────────────────────────────────────────────────────────────────
 
-    private suspend fun apply(pull: JsonObject) = withContext(io) {
-        val waiting = db.syncQueries.selectOutbox().executeAsList().groupBy({ it.tbl to it.row_key }, { it.col })
+    private suspend fun applyPull(pull: JsonObject) = withContext(io) {
         db.transaction {
+            // Read inside the transaction, so an edit made meanwhile can't be overwritten by this pull.
+            val waiting = db.syncQueries.selectOutbox().executeAsList().groupBy({ it.tbl to it.row_key }, { it.col })
             db.syncQueries.putState(APPLYING, "1") // the outbox triggers stay quiet: this came from the server
             for (table in syncTables) {
                 pull[table.remote]?.jsonArray?.forEach { row ->
                     val values = row.jsonObject
                     val key = table.keys.joinToString("|") { values.getValue(it).jsonPrimitive.content }
                     if (table.name == "user" && key == me.value) return@forEach // my own name is mine to change
-                    write(table, values, waiting[table.name to key].orEmpty())
+                    writeRow(table, values, waiting[table.name to key].orEmpty())
                 }
             }
             val cursor = pull.getValue("cursor").jsonPrimitive.content
@@ -120,7 +132,7 @@ class SyncRepository internal constructor(
     }
 
     /** Adds the row if it's new, then sets every field that isn't waiting to be pushed from here. */
-    private fun write(table: SyncTable, row: JsonObject, waiting: List<String>) {
+    private fun writeRow(table: SyncTable, row: JsonObject, waiting: List<String>) {
         if ("*" in waiting) return // made here and not sent yet: this phone's copy goes up next
         val columns = table.columns.keys.filter { it in row }
         driver.execute(
@@ -155,23 +167,41 @@ class SyncRepository internal constructor(
         val byTable = withContext(io) { db.syncQueries.selectOutbox().executeAsList() }.groupBy { it.tbl }
         for (table in syncTables) {
             val entries = byTable[table.name] ?: continue
-            val batches = linkedMapOf<Set<String>, MutableList<JsonObject>>()
+            val newRows = mutableListOf<JsonObject>()
+            val edits = mutableListOf<Pair<Map<String, String>, JsonObject>>()
             withContext(io) {
                 entries.groupBy { it.row_key }.forEach { (key, fields) ->
-                    val row = read(table, key) ?: return@forEach // gone from this phone (signed out, re-keyed): nothing to send
-                    val columns = if (fields.any { it.col == "*" }) table.columns.keys
-                    else table.keys + fields.map { it.col }.filter { it in table.columns } + "updated_at"
-                    batches.getOrPut(columns.toSet()) { mutableListOf() } += JsonObject(columns.associateWith { row.getValue(it) })
+                    val row = readRow(table, key) ?: return@forEach // gone from this phone (signed out, re-keyed): nothing to send
+                    if (fields.any { it.col == "*" }) newRows += JsonObject(row)
+                    else edits += table.keys.associateWith { row.getValue(it).jsonPrimitive.content } to
+                        JsonObject((fields.map { it.col }.filter { it in table.columns && it !in table.keys } + "updated_at").associateWith { row.getValue(it) })
                 }
             }
-            for (rows in batches.values) rows.chunked(500).forEach { api.upsert(table.remote, table.keys, JsonArray(it), token) }
+            newRows.chunked(500).forEach { batch ->
+                // One refused row mustn't hold back the rest: on a refusal, send the batch row by row.
+                unlessRefused { api.upsert(table.remote, table.keys, JsonArray(batch), token) }
+                    ?: batch.forEach { unlessRefused { api.upsert(table.remote, table.keys, JsonArray(listOf(it)), token) } }
+            }
+            // ponytail: one request per edited row; a push function on the server if this gets slow.
+            edits.forEach { (keys, fields) -> unlessRefused { api.update(table.remote, keys, fields, token) } }
             // Only what was read: a field edited again meanwhile has a new id and waits for the next push.
             withContext(io) { db.syncQueries.deleteSent(entries.map { it.id }) }
         }
     }
 
+    /**
+     * Runs [send]; null if Supabase refused it. A refused change is dropped (ponytail: silently; e.g. an edit to
+     * a trip you were just removed from) so it can't block the outbox. Offline and server errors still throw.
+     */
+    private inline fun unlessRefused(send: () -> Unit): Unit? = try {
+        send()
+    } catch (e: SupabaseException) {
+        if (!e.refused) throw e
+        null
+    }
+
     /** The row as JSON, or null when it's no longer on this phone (or isn't this phone's to send). */
-    private fun read(table: SyncTable, key: String): Map<String, JsonElement>? {
+    private fun readRow(table: SyncTable, key: String): Map<String, JsonElement>? {
         val columns = table.columns.entries.toList()
         val mine = table.mine?.let { " AND $it" }.orEmpty()
         return driver.executeQuery(

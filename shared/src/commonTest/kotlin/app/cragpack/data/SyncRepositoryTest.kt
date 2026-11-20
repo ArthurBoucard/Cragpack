@@ -3,11 +3,19 @@ package app.cragpack.data
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectIndexed
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -21,9 +29,13 @@ class SyncRepositoryTest {
     private val lea = "00000000-0000-4000-8000-00000000000a"
     private val tom = "00000000-0000-4000-8000-00000000000b"
 
-    /** Upserted rows per server table, in the order they arrived. */
+    /** New rows (upserts) per server table, in the order they arrived. */
     private val pushed = mutableMapOf<String, MutableList<JsonObject>>()
+
+    /** Field edits (PATCH): "table?filter" to the fields sent. */
+    private val edited = mutableListOf<Pair<String, JsonObject>>()
     private var pull = """{"trips":[],"cursor":"2026-11-20T10:00:00+00:00"}"""
+    private var refuseEdits = false
 
     private val engine = MockEngine { request ->
         val path = request.url.encodedPath
@@ -31,6 +43,13 @@ class SyncRepositoryTest {
             path.endsWith("/token") -> """{"access_token":"a","refresh_token":"r","expires_at":${Clock.System.now().epochSeconds + 3600},
                 "user":{"id":"$lea","email":"lea@example.com","user_metadata":{"name":"Léa"}}}"""
             path.endsWith("/rpc/sync_pull") -> pull
+            request.method == HttpMethod.Patch && refuseEdits ->
+                return@MockEngine respond("""{"code":"42501","message":"new row violates row-level security policy"}""", HttpStatusCode.Forbidden)
+            request.method == HttpMethod.Patch -> {
+                edited += "${path.substringAfterLast('/')}?${request.url.encodedQuery}" to
+                    Json.parseToJsonElement((request.body as TextContent).text).jsonObject
+                ""
+            }
             else -> {
                 val rows = Json.parseToJsonElement((request.body as TextContent).text).jsonArray.map { it.jsonObject }
                 pushed.getOrPut(path.substringAfterLast('/')) { mutableListOf() } += rows
@@ -73,7 +92,9 @@ class SyncRepositoryTest {
         assertEquals(1, graph.sync.observe().first().pending)
         graph.sync.syncNow()
 
-        assertEquals(setOf("id", "name", "updated_at"), pushed.getValue("trip").single().keys)
+        assertEquals(emptyMap(), pushed)
+        assertEquals("trip?id=eq.$trip", edited.single().first)
+        assertEquals(setOf("name", "updated_at"), edited.single().second.keys)
         assertEquals(0, graph.sync.observe().first().pending)
     }
 
@@ -95,8 +116,38 @@ class SyncRepositoryTest {
         assertEquals("Mine", item.trip.name) // my edit is newer: it goes up, theirs doesn't overwrite it
         assertEquals("Bleau", item.trip.crag) // their edit to another field lands
         assertEquals(listOf("Léa", "Tom"), item.crew.map { it.name })
-        assertEquals(listOf("trip"), pushed.keys.toList()) // only my rename went up, nothing echoed
-        assertEquals(setOf("id", "name", "updated_at"), pushed.getValue("trip").single().keys)
+        assertEquals(emptyMap(), pushed) // nothing pulled is echoed back…
+        assertEquals(listOf("trip?id=eq.$trip" to "Mine"), edited.map { it.first to it.second.str("name") }) // …only my rename goes up
+    }
+
+    @Test
+    fun theStatusPillHearsAboutEditsAsTheyHappen() = runTest {
+        val trip = signedInWithATrip()
+        graph.sync.syncNow()
+        val seen = mutableListOf<Int>()
+
+        withContext(Dispatchers.Default) {
+            withTimeout(5_000) {
+                graph.sync.observe().map { it.pending }.distinctUntilChanged().take(2).collectIndexed { i, n ->
+                    seen += n
+                    if (i == 0) graph.trips.rename(trip, "Font Easter 2", "Fontainebleau") // while someone is watching
+                }
+            }
+        }
+
+        assertEquals(listOf(0, 1), seen)
+    }
+
+    @Test
+    fun aRefusedEditIsDroppedInsteadOfBlockingTheRest() = runTest {
+        val trip = signedInWithATrip()
+        graph.sync.syncNow()
+        graph.trips.rename(trip, "Font Easter 2", "Fontainebleau")
+        refuseEdits = true
+
+        graph.sync.syncNow() // doesn't throw
+
+        assertEquals(0, graph.sync.observe().first().pending)
     }
 
     private fun JsonObject.str(key: String) = getValue(key).toString().trim('"')

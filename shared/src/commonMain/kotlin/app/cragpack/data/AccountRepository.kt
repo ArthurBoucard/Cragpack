@@ -29,6 +29,9 @@ class AccountRepository internal constructor(
     private val io = Dispatchers.IO
     private val refreshing = Mutex()
 
+    /** Held by a sync and by sign out, so a pull can't land on a phone that was just cleared. */
+    internal val session = Mutex()
+
     /** False in builds without Supabase keys: accounts can't be created there. */
     val available: Boolean get() = auth != null
 
@@ -48,7 +51,7 @@ class AccountRepository internal constructor(
     suspend fun resendConfirmation(email: String) = auth().resendConfirmation(email.trim())
 
     /** Clears the phone and starts again as a new local user. The account's trips stay on the server. */
-    suspend fun signOut() {
+    suspend fun signOut() = session.withLock {
         runCatching { accessToken()?.let { auth?.signOut(it) } } // offline: the session just expires
         val id = newId()
         withContext(io) {

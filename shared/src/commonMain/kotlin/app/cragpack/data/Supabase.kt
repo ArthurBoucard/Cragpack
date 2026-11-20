@@ -3,14 +3,18 @@ package app.cragpack.data
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.header
-import io.ktor.client.request.post
+import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
+import io.ktor.http.encodeURLParameter
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -30,7 +34,10 @@ internal data class Session(
 )
 
 /** What Supabase said went wrong, in its own words ("Invalid login credentials"). */
-class SupabaseException(message: String, val code: String?) : Exception(message)
+class SupabaseException(message: String, val code: String?, val status: Int = 0) : Exception(message) {
+    /** The server understood and said no (access rules, a constraint): sending it again won't help. */
+    val refused get() = status in 400..499 && status !in setOf(401, 408, 429)
+}
 
 /** Supabase over plain HTTP (Auth and the REST API): only the calls the app makes. */
 internal class Supabase(private val http: HttpClient, private val url: String, private val key: String) {
@@ -60,22 +67,33 @@ internal class Supabase(private val http: HttpClient, private val url: String, p
         call("logout", JsonObject(emptyMap()), accessToken)
     }
 
-    /** Calls a Postgres function (from the supabase folder) as the signed-in user. */
-    suspend fun rpc(name: String, args: JsonObject, accessToken: String): JsonObject =
-        post("rest/v1/rpc/$name", args.toString(), accessToken)
+    /** Calls a Postgres function (from the supabase folder) as the signed-in user, or without one when [accessToken] is null. */
+    suspend fun rpc(name: String, args: JsonObject, accessToken: String?): JsonElement =
+        send("rest/v1/rpc/$name", args.toString(), accessToken ?: key)
 
     /**
      * Inserts [rows], or updates the columns they carry where a row with the same [keys] exists.
      * Every row must carry the same columns (PostgREST's rule for a batch).
      */
     suspend fun upsert(table: String, keys: List<String>, rows: JsonArray, accessToken: String) {
-        post("rest/v1/$table?on_conflict=${keys.joinToString(",")}", rows.toString(), accessToken, "resolution=merge-duplicates,return=minimal")
+        send("rest/v1/$table?on_conflict=${keys.joinToString(",")}", rows.toString(), accessToken, "resolution=merge-duplicates,return=minimal")
     }
 
-    private suspend fun call(path: String, body: JsonObject, bearer: String = key): JsonObject = post("auth/v1/$path", body.toString(), bearer)
+    /**
+     * Sets [fields] on the one row whose [keys] match: an UPDATE, so the row's other columns stay as they are.
+     * (An upsert with only some columns fails: Postgres checks NOT NULL on the row it would insert.)
+     */
+    suspend fun update(table: String, keys: Map<String, String>, fields: JsonObject, accessToken: String) {
+        val filter = keys.entries.joinToString("&") { (k, v) -> "$k=eq.${v.encodeURLParameter()}" }
+        send("rest/v1/$table?$filter", fields.toString(), accessToken, "return=minimal", HttpMethod.Patch)
+    }
 
-    private suspend fun post(path: String, body: String, bearer: String, prefer: String? = null): JsonObject {
-        val response = http.post("$url/$path") {
+    private suspend fun call(path: String, body: JsonObject, bearer: String = key): JsonObject =
+        send("auth/v1/$path", body.toString(), bearer) as? JsonObject ?: JsonObject(emptyMap())
+
+    private suspend fun send(path: String, body: String, bearer: String, prefer: String? = null, verb: HttpMethod = HttpMethod.Post): JsonElement {
+        val response = http.request("$url/$path") {
+            method = verb
             header("apikey", key)
             header("Authorization", "Bearer $bearer")
             prefer?.let { header("Prefer", it) }
@@ -83,13 +101,16 @@ internal class Supabase(private val http: HttpClient, private val url: String, p
             setBody(body)
         }
         val text = response.bodyAsText()
-        val json = runCatching { Json.parseToJsonElement(text).jsonObject }.getOrDefault(JsonObject(emptyMap()))
+        val parsed = runCatching { Json.parseToJsonElement(text) }.getOrDefault(JsonNull)
         if (!response.status.isSuccess()) {
+            val json = parsed as? JsonObject ?: JsonObject(emptyMap())
             // Auth errors use msg + error_code (token errors: error_description + error); the REST API, message + code.
             val message = json.string("msg") ?: json.string("error_description") ?: json.string("message") ?: "Something went wrong (${response.status.value})"
-            throw SupabaseException(message, json.string("error_code") ?: json.string("error") ?: json.string("code"))
+            throw SupabaseException(
+                message, json.string("error_code") ?: json.string("error") ?: json.string("hint") ?: json.string("code"), response.status.value,
+            )
         }
-        return json
+        return parsed
     }
 
     private fun toSession(json: JsonObject): Session = runCatching {

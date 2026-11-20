@@ -163,6 +163,11 @@ create table if not exists log_entry (
     server_updated_at timestamptz not null default now()
 );
 
+-- Every table the phone syncs, parents first (the order the phone pushes in: SyncTables.kt).
+create or replace function synced_tables() returns text[] language sql immutable as $$
+    select array['profile', 'trip', 'trip_member', 'sector', 'day', 'objective', 'interest', 'plan_item', 'beta_item', 'gear_item', 'gear_claim', 'log_entry']
+$$;
+
 -- ── Server time and trip_id on every write ─────────────────────────────────────────
 
 create or replace function touch() returns trigger language plpgsql as $$
@@ -184,10 +189,46 @@ begin
     return new;
 end $$;
 
+-- A log entry is append-only (D2, tech spec §3): after it's written only Undo (deleted_at) changes it.
+create or replace function log_entry_append_only() returns trigger language plpgsql as $$
+begin
+    if (to_jsonb(new) - array['deleted_at', 'updated_at', 'server_updated_at']) <> (to_jsonb(old) - array['deleted_at', 'updated_at', 'server_updated_at']) then
+        raise exception 'A logged climb can only be undone, not changed' using errcode = '42501';
+    end if;
+    return new;
+end $$;
+
+-- Columns that never change once a row exists (trigger arguments): who made it, whose and which trip it is.
+create or replace function keep_columns() returns trigger language plpgsql as $$
+declare c text;
+begin
+    foreach c in array tg_argv loop
+        if to_jsonb(new) -> c is distinct from to_jsonb(old) -> c then
+            raise exception '% can''t change', c using errcode = '42501';
+        end if;
+    end loop;
+    return new;
+end $$;
+
+-- Only organisers change roles, and a removed climber comes back only through an invite link (join_trip,
+-- which runs as the function's owner, not as the climber).
+create or replace function trip_member_guard() returns trigger language plpgsql as $$
+begin
+    if current_user = 'authenticated' and not is_organiser(old.trip_id) then
+        if new.role is distinct from old.role then
+            raise exception 'Only organisers change roles' using errcode = '42501';
+        end if;
+        if old.deleted_at is not null and new.deleted_at is null then
+            raise exception 'Join again with an invite link' using errcode = '42501';
+        end if;
+    end if;
+    return new;
+end $$;
+
 do $$
 declare t text;
 begin
-    foreach t in array array['profile', 'trip', 'trip_member', 'sector', 'day', 'objective', 'interest', 'plan_item', 'beta_item', 'gear_item', 'gear_claim', 'log_entry'] loop
+    foreach t in array synced_tables() loop
         execute format('drop trigger if exists touch on %I', t);
         execute format('create trigger touch before insert or update on %I for each row execute function touch()', t);
         execute format('alter table %I enable row level security', t);
@@ -195,12 +236,26 @@ begin
             execute format('create index if not exists %I on %I (trip_id, server_updated_at)', t || '_pull', t);
         end if;
     end loop;
+    -- On update too: moving a star or plan item to another objective moves it to that objective's trip.
     foreach t in array array['interest', 'plan_item', 'beta_item'] loop
         execute format('drop trigger if exists fill_trip on %I', t);
-        execute format('create trigger fill_trip before insert on %I for each row execute function fill_trip_from_objective()', t);
+        execute format('create trigger fill_trip before insert or update on %I for each row execute function fill_trip_from_objective()', t);
     end loop;
     drop trigger if exists fill_trip on gear_claim;
-    create trigger fill_trip before insert on gear_claim for each row execute function fill_trip_from_gear();
+    create trigger fill_trip before insert or update on gear_claim for each row execute function fill_trip_from_gear();
+
+    drop trigger if exists append_only on log_entry;
+    create trigger append_only before update on log_entry for each row execute function log_entry_append_only();
+    drop trigger if exists keep_columns on trip;
+    create trigger keep_columns before update on trip for each row execute function keep_columns('owner_id');
+    drop trigger if exists keep_columns on trip_member;
+    create trigger keep_columns before update on trip_member for each row execute function keep_columns('trip_id', 'user_id');
+    drop trigger if exists guard on trip_member;
+    create trigger guard before update on trip_member for each row execute function trip_member_guard();
+    foreach t in array array['objective', 'beta_item', 'gear_item'] loop
+        execute format('drop trigger if exists keep_columns on %I', t);
+        execute format('create trigger keep_columns before update on %I for each row execute function keep_columns(''created_by'')', t);
+    end loop;
 end $$;
 
 create index if not exists log_entry_mine on log_entry (user_id, server_updated_at);
@@ -224,15 +279,15 @@ do $$
 declare t text; p record;
 begin
     -- Start clean so re-running the file never leaves an old, looser policy behind.
-    for p in select policyname, tablename from pg_policies where schemaname = 'public' and tablename = any(array[
-        'profile', 'trip', 'trip_member', 'sector', 'day', 'objective', 'interest', 'plan_item', 'beta_item', 'gear_item', 'gear_claim', 'log_entry'
-    ]) loop
+    for p in select policyname, tablename from pg_policies where schemaname = 'public' and tablename = any(synced_tables()) loop
         execute format('drop policy %I on %I', p.policyname, p.tablename);
     end loop;
     -- Shared trip content: any member reads and writes. No deletes: rows are soft-deleted (deleted_at).
     foreach t in array array['sector', 'day', 'objective', 'plan_item', 'beta_item', 'gear_item'] loop
         execute format('create policy member_read on %I for select using (is_member(trip_id))', t);
-        execute format('create policy member_add on %I for insert with check (is_member(trip_id))', t);
+        -- Rows that name their maker must name the caller.
+        execute format('create policy member_add on %I for insert with check (is_member(trip_id)%s)', t,
+            case when t in ('objective', 'beta_item', 'gear_item') then ' and created_by = auth.uid()' else '' end);
         execute format('create policy member_edit on %I for update using (is_member(trip_id)) with check (is_member(trip_id))', t);
     end loop;
     -- Per-climber rows: everyone in the trip sees them, only their climber writes them.
@@ -272,6 +327,7 @@ create policy own_edit on profile for update using (id = auth.uid()) with check 
 -- cursors: {"<trip id>": "<timestamptz>", "me": "<timestamptz>"}. A trip missing from it (just joined) comes in full.
 -- Returns {"<table>": [rows…], "profile": [...], "trips": [my trip ids], "cursor": "<timestamptz>"}.
 -- cursor is 30 s before now: a write still committing while this runs is fetched again next time (rows are upserted, so twice is fine).
+-- ponytail: a write transaction longer than 30 s would be missed; pushes are single short statements, so none is.
 -- Runs as the caller, so the access rules above still apply.
 create or replace function sync_pull(cursors jsonb) returns jsonb language plpgsql stable set search_path = public as $$
 declare
@@ -280,7 +336,7 @@ declare
     t text;
     rows jsonb;
 begin
-    foreach t in array array['trip', 'trip_member', 'sector', 'day', 'objective', 'interest', 'plan_item', 'beta_item', 'gear_item', 'gear_claim', 'log_entry'] loop
+    foreach t in array (synced_tables())[2:] loop -- every table but profile
         execute format(
             'select coalesce(jsonb_agg(to_jsonb(x) - ''server_updated_at''), ''[]'') from %I x
              where x.trip_id = any($1) and x.server_updated_at > coalesce(($2 ->> x.trip_id::text)::timestamptz, ''-infinity'')', t)
