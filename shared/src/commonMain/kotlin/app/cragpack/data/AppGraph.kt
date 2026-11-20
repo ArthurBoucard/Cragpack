@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.SupervisorJob
+import app.cragpack.domain.invite.inviteToken
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -45,6 +46,14 @@ class AppGraph internal constructor(driver: SqlDriver, private val clock: Clock,
     val settings = SettingsRepository(db)
     val account = AccountRepository(db, supabase, me, ::nowMillis)
     val sync = SyncRepository(db, driver, supabase, account, me)
+    val invites = InviteRepository(supabase, account, sync)
+
+    /** An invite link the phone opened the app with (Android App Links), waiting for the UI to show Join. */
+    val openedInvite = MutableStateFlow<String?>(null)
+
+    fun openLink(url: String?) {
+        url?.let(::inviteToken)?.let { openedInvite.value = it }
+    }
 
     /** Called once by the platform entry point: syncing runs for as long as the app process does. */
     fun startSync() {

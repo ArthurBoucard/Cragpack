@@ -1,5 +1,9 @@
 package app.cragpack.feature.trip
 
+import androidx.compose.ui.Alignment
+import app.cragpack.designsystem.component.CtIconButtonStyle
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -90,6 +94,7 @@ fun TripScreen(
     onOpenObjective: (String) -> Unit,
     onEditDay: (String) -> Unit,
     onSettings: () -> Unit,
+    onCrew: () -> Unit,
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -106,7 +111,7 @@ fun TripScreen(
         when (tab) {
             0 -> {
                 LightStatusBarIcons()
-                Overview(state, bottom.calculateBottomPadding(), onBack, onSettings, onTab = { tab = it })
+                Overview(state, bottom.calculateBottomPadding(), onBack, onSettings, onCrew, onTab = { tab = it })
             }
             1 -> WishlistTab(wishlist, bottom, onBack, onAddObjective, onOpenObjective)
             2 -> PlanTab(plan, bottom, onBack, onEditDay, onOpenObjective)
@@ -117,7 +122,14 @@ fun TripScreen(
 }
 
 @Composable
-private fun Overview(ui: TripUi, bottom: androidx.compose.ui.unit.Dp, onBack: () -> Unit, onSettings: () -> Unit, onTab: (Int) -> Unit) {
+private fun Overview(
+    ui: TripUi,
+    bottom: androidx.compose.ui.unit.Dp,
+    onBack: () -> Unit,
+    onSettings: () -> Unit,
+    onCrew: () -> Unit,
+    onTab: (Int) -> Unit,
+) {
     val (trip, crew, stats) = ui.detail
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
         PhotoSurface(
@@ -136,8 +148,10 @@ private fun Overview(ui: TripUi, bottom: androidx.compose.ui.unit.Dp, onBack: ()
                 CtText(trip.name, style = CragpackTheme.type.titleXl)
                 val place = listOf(trip.crag, formatDateRange(trip.start, trip.end)).filter { it.isNotBlank() }.joinToString(" · ")
                 CtText(place, Modifier.padding(top = 8.dp, bottom = 16.dp))
-                // ponytail: the invite + button arrives with accounts (Phase 2).
-                AvatarStack(crew.map { it.name to it.colorIndex }, size = AvatarSize.Xl)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AvatarStack(crew.map { it.name to it.colorIndex }, Modifier.clickable(onClickLabel = "Crew", role = Role.Button, onClick = onCrew), size = AvatarSize.Xl)
+                    CtIconButton(LucideIcon.Plus, "Invite", onCrew, style = CtIconButtonStyle.On)
+                }
             }
         }
         Column(Modifier.padding(horizontal = SizeTokens.edge), verticalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {

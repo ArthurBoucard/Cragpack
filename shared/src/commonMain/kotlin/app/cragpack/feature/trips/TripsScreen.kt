@@ -1,5 +1,15 @@
 package app.cragpack.feature.trips
 
+import app.cragpack.domain.invite.inviteToken
+import app.cragpack.designsystem.component.CtTextField
+import app.cragpack.designsystem.component.CtButtonStyle
+import app.cragpack.designsystem.component.CtButtonSize
+import app.cragpack.designsystem.component.CtBottomSheet
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -89,9 +99,14 @@ fun TripsScreen(
     onRecap: (String) -> Unit,
     onLogbook: () -> Unit,
     onSettings: () -> Unit,
+    onJoin: (token: String) -> Unit,
 ) {
     val trips by vm.trips.collectAsStateWithLifecycle()
-    CtScreen(dock = { CtaDock("New trip", LucideIcon.Plus, onNewTrip) }) { bottom ->
+    var pasting by rememberSaveable { mutableStateOf(false) }
+    CtScreen(
+        dock = { CtaDock("New trip", LucideIcon.Plus, onNewTrip) },
+        overlay = { PasteLinkSheet(pasting, onDismiss = { pasting = false }, onJoin = { pasting = false; onJoin(it) }) },
+    ) { bottom ->
         LazyColumn(
             contentPadding = PaddingValues(start = SizeTokens.edge, end = SizeTokens.edge, bottom = bottom.calculateBottomPadding()),
             verticalArrangement = Arrangement.spacedBy(SizeTokens.gap * 2),
@@ -107,8 +122,11 @@ fun TripsScreen(
             val list = trips
             when {
                 list == null -> Unit
-                // ponytail: "Paste invite link" arrives with accounts (Phase 2).
-                list.isEmpty() -> item { EmptyState("No trips yet", Modifier.fillMaxWidth().height(320.dp)) }
+                list.isEmpty() -> item {
+                    EmptyState("No trips yet", Modifier.fillMaxWidth().height(320.dp)) {
+                        CtButton("Paste invite link", { pasting = true }, style = CtButtonStyle.Ghost, icon = LucideIcon.Link)
+                    }
+                }
                 else -> items(list, key = { it.id }) { trip ->
                     when (trip.timing) {
                         is TripTiming.Now -> NowCard(trip, trip.timing) { onOpenTrip(trip.id) }
@@ -116,6 +134,10 @@ fun TripsScreen(
                         TripTiming.Past -> PastRow(trip, { onOpenTrip(trip.id) }, { onRecap(trip.id) })
                     }
                 }
+            }
+            // Design gap: with trips already here, a link still needs somewhere to go until links open the app.
+            if (!trips.isNullOrEmpty()) item {
+                CtButton("Join a trip with a link", { pasting = true }, Modifier.fillMaxWidth(), style = CtButtonStyle.Ghost, icon = LucideIcon.Link)
             }
         }
     }
@@ -158,3 +180,22 @@ private fun PastRow(trip: TripCardUi, onClick: () -> Unit, onRecap: () -> Unit) 
 @Composable
 private fun PhotoCard(modifier: Modifier, cover: String?, onClick: () -> Unit, content: @Composable BoxScope.() -> Unit) =
     PhotoSurface(modifier.fillMaxWidth(), onClick = onClick, imagePath = cover, content = content)
+
+/** "Paste invite link": until links open the app on their own (they need the real domain), this is the way in. */
+@Composable
+private fun BoxScope.PasteLinkSheet(visible: Boolean, onDismiss: () -> Unit, onJoin: (token: String) -> Unit) {
+    var text by rememberSaveable { mutableStateOf("") }
+    var wrong by rememberSaveable { mutableStateOf(false) }
+    CtBottomSheet(visible, "Join a trip", onDismiss) {
+        CtTextField(
+            text, { text = it; wrong = false }, "Invite link",
+            placeholder = "cragpack.app/j/…",
+            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Uri),
+        )
+        if (wrong) CtText("That isn't a Cragpack invite link. Copy the whole link and paste it again.", color = CragpackTheme.colors.dangerInk)
+        CtButton("Open invite", {
+            val token = inviteToken(text)
+            if (token == null) wrong = true else { text = ""; onJoin(token) }
+        }, size = CtButtonSize.Wide, style = CtButtonStyle.Accent, enabled = text.isNotBlank())
+    }
+}

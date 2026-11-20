@@ -1,6 +1,7 @@
 package app.cragpack.feature.tripsettings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -33,6 +35,7 @@ import app.cragpack.designsystem.component.CtButtonSize
 import app.cragpack.designsystem.component.CtButtonStyle
 import app.cragpack.designsystem.component.CtConfirmDialog
 import app.cragpack.designsystem.component.CtFieldButton
+import app.cragpack.designsystem.component.CtIcon
 import app.cragpack.designsystem.component.CtIconButton
 import app.cragpack.designsystem.component.CtScreen
 import app.cragpack.designsystem.component.CtText
@@ -51,6 +54,7 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -61,6 +65,17 @@ class TripSettingsViewModel(private val graph: AppGraph, private val tripId: Str
     val today = graph.today()
     /** Live trip for the cover, dates and crew size; null while loading or once deleted. */
     val detail = graph.trips.observeTrip(tripId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Organisers with an account reset the invite link (tech spec §5). */
+    val canResetLink = combine(graph.account.observe(), graph.trips.observeCrew(tripId)) { account, crew ->
+        account != null && crew.any { it.person.id == graph.myId && it.organiser }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    var linkMessage by mutableStateOf<String?>(null)
+
+    fun resetLink() = viewModelScope.launch {
+        linkMessage = runCatching { graph.invites.reset(tripId) }
+            .fold({ "New link made: ${it.substringAfter("://")}. The old one no longer works." }, { "Can't reset the link right now. Check your connection and try again." })
+    }
 
     // The text fields own their text while typing; each change is saved (screen 29: "changes save automatically").
     var name by mutableStateOf("")
@@ -101,11 +116,12 @@ class TripSettingsViewModel(private val graph: AppGraph, private val tripId: Str
 
 /**
  * Trip settings (29) and Confirm delete (30).
- * ponytail: the invite link (Reset) and Leave trip arrive with accounts and sharing (Phase 2).
+ * ponytail: Leave trip arrives with crew management (Phase 2).
  */
 @Composable
 fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted: () -> Unit) {
     val detail by vm.detail.collectAsStateWithLifecycle()
+    val canResetLink by vm.canResetLink.collectAsStateWithLifecycle()
     var datesOpen by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -150,6 +166,15 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
             Row(horizontalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
                 CtFieldButton("Start", formatDayShort(trip.start), "", { datesOpen = true }, Modifier.weight(1f))
                 CtFieldButton("End", formatDayShort(trip.end), "", { datesOpen = true }, Modifier.weight(1f))
+            }
+            if (canResetLink) {
+                ListRow(
+                    "Invite link",
+                    meta = "Reset it and the old link stops working",
+                    leading = { Box(Modifier.size(SizeTokens.tapSm), contentAlignment = Alignment.Center) { CtIcon(LucideIcon.Link, null) } },
+                    trailing = { CtButton("Reset", vm::resetLink, style = CtButtonStyle.Ghost, icon = LucideIcon.RefreshCw) },
+                )
+                vm.linkMessage?.let { CtText(it, Modifier.padding(horizontal = 8.dp), color = CragpackTheme.colors.ink2) }
             }
             CtButton(
                 "Delete trip", { confirmDelete = true },

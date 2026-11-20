@@ -1,5 +1,6 @@
 package app.cragpack
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -15,6 +16,13 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
         super.onCreate(savedInstanceState)
         val graph = (application as CragpackApp).graph
+        if (savedInstanceState == null) graph.openLink(intent?.dataString)
         setContent { App(graph) }
+    }
+
+    /** An invite link opened while the app is already running. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        (application as CragpackApp).graph.openLink(intent.dataString)
     }
 }

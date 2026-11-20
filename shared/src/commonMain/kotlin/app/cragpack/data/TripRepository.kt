@@ -5,6 +5,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import app.cragpack.data.db.CragpackDb
+import app.cragpack.domain.trip.CrewMember
 import app.cragpack.domain.trip.Person
 import app.cragpack.domain.trip.Trip
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +57,10 @@ class TripRepository internal constructor(
             TripStats(objectives.toInt(), sent.toInt(), unplanned.toInt(), gear.toInt(), covered.toInt(), beta.toInt())
         }.asFlow().mapToOne(io),
     ) { trip, crews, stats -> trip?.let { TripDetail(it, crews[id].orEmpty(), stats) } }
+
+    fun observeCrew(tripId: String): Flow<List<CrewMember>> =
+        db.tripQueries.selectCrew(tripId) { id, name, color, role -> CrewMember(Person(id, name, color.toInt()), role == "organiser") }
+            .asFlow().mapToList(io)
 
     fun observeDay(tripId: String, date: LocalDate): Flow<PlannedDay?> =
         db.tripQueries.selectDayOn(tripId, date.toString()) { isRest, sector -> PlannedDay(isRest != 0L, sector) }

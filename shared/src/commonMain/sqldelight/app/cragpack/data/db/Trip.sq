@@ -84,10 +84,17 @@ INSERT INTO trip_member (trip_id, user_id, role, color_index, joined_at, updated
 
 -- Crew of every trip, in join order, for trip cards.
 selectMembers:
-SELECT m.trip_id, m.user_id, u.name, m.color_index
-FROM trip_member m JOIN user u ON u.id = m.user_id
+SELECT m.trip_id, m.user_id, coalesce(u.name, '') AS name, m.color_index
+FROM trip_member m LEFT JOIN user u ON u.id = m.user_id
 WHERE m.deleted_at IS NULL
 ORDER BY m.trip_id, m.joined_at;
+
+-- Crew (07): one trip's climbers with their role, in join order.
+selectCrew:
+SELECT m.user_id, coalesce(u.name, '') AS name, m.color_index, m.role
+FROM trip_member m LEFT JOIN user u ON u.id = m.user_id
+WHERE m.trip_id = ? AND m.deleted_at IS NULL
+ORDER BY m.joined_at;
 
 selectSectors:
 SELECT id, name, approach_note FROM sector WHERE trip_id = ? AND deleted_at IS NULL ORDER BY created_at;
