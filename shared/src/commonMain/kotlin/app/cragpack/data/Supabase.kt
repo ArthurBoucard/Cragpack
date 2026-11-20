@@ -10,6 +10,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -29,10 +30,10 @@ internal data class Session(
 )
 
 /** What Supabase said went wrong, in its own words ("Invalid login credentials"). */
-class AuthException(message: String, val code: String?) : Exception(message)
+class SupabaseException(message: String, val code: String?) : Exception(message)
 
-/** Supabase Auth over plain HTTP: only the calls the app makes. */
-internal class SupabaseAuth(private val http: HttpClient, private val url: String, private val key: String) {
+/** Supabase over plain HTTP (Auth and the REST API): only the calls the app makes. */
+internal class Supabase(private val http: HttpClient, private val url: String, private val key: String) {
 
     /** Null when the account must be confirmed from the email first (Supabase's "Confirm email" is on). */
     suspend fun signUp(email: String, password: String, name: String): Session? = call(
@@ -59,19 +60,34 @@ internal class SupabaseAuth(private val http: HttpClient, private val url: Strin
         call("logout", JsonObject(emptyMap()), accessToken)
     }
 
-    private suspend fun call(path: String, body: JsonObject, bearer: String = key): JsonObject {
-        val response = http.post("$url/auth/v1/$path") {
+    /** Calls a Postgres function (from the supabase folder) as the signed-in user. */
+    suspend fun rpc(name: String, args: JsonObject, accessToken: String): JsonObject =
+        post("rest/v1/rpc/$name", args.toString(), accessToken)
+
+    /**
+     * Inserts [rows], or updates the columns they carry where a row with the same [keys] exists.
+     * Every row must carry the same columns (PostgREST's rule for a batch).
+     */
+    suspend fun upsert(table: String, keys: List<String>, rows: JsonArray, accessToken: String) {
+        post("rest/v1/$table?on_conflict=${keys.joinToString(",")}", rows.toString(), accessToken, "resolution=merge-duplicates,return=minimal")
+    }
+
+    private suspend fun call(path: String, body: JsonObject, bearer: String = key): JsonObject = post("auth/v1/$path", body.toString(), bearer)
+
+    private suspend fun post(path: String, body: String, bearer: String, prefer: String? = null): JsonObject {
+        val response = http.post("$url/$path") {
             header("apikey", key)
             header("Authorization", "Bearer $bearer")
+            prefer?.let { header("Prefer", it) }
             contentType(ContentType.Application.Json)
-            setBody(body.toString())
+            setBody(body)
         }
         val text = response.bodyAsText()
         val json = runCatching { Json.parseToJsonElement(text).jsonObject }.getOrDefault(JsonObject(emptyMap()))
         if (!response.status.isSuccess()) {
-            // Newer Supabase errors use msg + error_code; token errors still use error_description + error.
+            // Auth errors use msg + error_code (token errors: error_description + error); the REST API, message + code.
             val message = json.string("msg") ?: json.string("error_description") ?: json.string("message") ?: "Something went wrong (${response.status.value})"
-            throw AuthException(message, json.string("error_code") ?: json.string("error"))
+            throw SupabaseException(message, json.string("error_code") ?: json.string("error") ?: json.string("code"))
         }
         return json
     }
@@ -86,14 +102,14 @@ internal class SupabaseAuth(private val http: HttpClient, private val url: Strin
             refreshToken = json.string("refresh_token")!!,
             expiresAt = json.getValue("expires_at").jsonPrimitive.long,
         )
-    }.getOrElse { throw AuthException("Supabase sent an answer the app doesn't understand", null) }
+    }.getOrElse { throw SupabaseException("Supabase sent an answer the app doesn't understand", null) }
 
     private fun JsonObject.string(name: String) = (get(name) as? JsonPrimitive)?.takeIf { it.isString }?.content
 
     companion object {
         /** Null when this build has no Supabase keys in local.properties: the app stays on this phone. */
-        fun fromConfig(): SupabaseAuth? =
+        fun fromConfig(): Supabase? =
             if (SupabaseConfig.URL.isBlank() || SupabaseConfig.KEY.isBlank()) null
-            else SupabaseAuth(HttpClient { install(HttpTimeout) { requestTimeoutMillis = 20_000 } }, SupabaseConfig.URL.trimEnd('/'), SupabaseConfig.KEY)
+            else Supabase(HttpClient { install(HttpTimeout) { requestTimeoutMillis = 20_000 } }, SupabaseConfig.URL.trimEnd('/'), SupabaseConfig.KEY)
     }
 }

@@ -37,7 +37,7 @@ import app.cragpack.designsystem.component.EmptyState
 import app.cragpack.designsystem.component.GradeChip
 import app.cragpack.designsystem.component.ListRow
 import app.cragpack.designsystem.component.StarToggle
-import app.cragpack.designsystem.component.SyncStatus
+import app.cragpack.feature.LocalSyncStatus
 import app.cragpack.designsystem.component.SyncStatusPill
 import app.cragpack.designsystem.component.TopBar
 import app.cragpack.designsystem.icon.LucideIcon
@@ -118,7 +118,7 @@ fun WishlistTab(vm: WishlistViewModel, bottom: PaddingValues, onBack: () -> Unit
         item {
             TopBar(
                 leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) },
-                center = { SyncStatusPill(SyncStatus.OnThisPhone) },
+                center = { SyncStatusPill(LocalSyncStatus.current) },
                 trailing = { CtIconButton(LucideIcon.Plus, "Add project", onAdd, style = CtIconButtonStyle.Accent) },
             )
         }

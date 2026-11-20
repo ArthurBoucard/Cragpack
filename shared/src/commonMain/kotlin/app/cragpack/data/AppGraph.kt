@@ -2,6 +2,10 @@ package app.cragpack.data
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cragpack.data.db.CragpackDb
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -14,10 +18,14 @@ import kotlin.uuid.Uuid
  * Everything the app needs, built once per process by the platform entry point.
  * ponytail: hand-wired; add a DI library when wiring by hand gets painful.
  */
-class AppGraph internal constructor(driver: SqlDriver, private val clock: Clock, auth: SupabaseAuth?) {
-    constructor(driver: SqlDriver) : this(driver, Clock.System, SupabaseAuth.fromConfig())
+class AppGraph internal constructor(driver: SqlDriver, private val clock: Clock, supabase: Supabase?) {
+    constructor(driver: SqlDriver) : this(driver, Clock.System, Supabase.fromConfig())
 
     val db = CragpackDb(driver)
+
+    init {
+        outboxTriggers().forEach { driver.execute(null, it, 0) }
+    }
 
     /**
      * The person using this phone. Created on first launch, no account needed (D4). It becomes the
@@ -35,7 +43,13 @@ class AppGraph internal constructor(driver: SqlDriver, private val clock: Clock,
     val plan = PlanRepository(db, ::nowMillis)
     val gear = GearRepository(db, me, ::nowMillis)
     val settings = SettingsRepository(db)
-    val account = AccountRepository(db, auth, me, ::nowMillis)
+    val account = AccountRepository(db, supabase, me, ::nowMillis)
+    val sync = SyncRepository(db, driver, supabase, account, me)
+
+    /** Called once by the platform entry point: syncing runs for as long as the app process does. */
+    fun startSync() {
+        sync.start(CoroutineScope(SupervisorJob() + Dispatchers.IO))
+    }
 
     fun today(): LocalDate = clock.todayIn(TimeZone.currentSystemDefault())
 

@@ -33,7 +33,7 @@ import app.cragpack.designsystem.component.EmptyState
 import app.cragpack.designsystem.component.ListRow
 import app.cragpack.designsystem.component.NowBadge
 import app.cragpack.designsystem.component.PhotoSurface
-import app.cragpack.designsystem.component.SyncStatus
+import app.cragpack.feature.LocalSyncStatus
 import app.cragpack.designsystem.component.SyncStatusPill
 import app.cragpack.designsystem.component.TopBar
 import app.cragpack.designsystem.icon.LucideIcon
@@ -99,7 +99,7 @@ fun TripsScreen(
             item {
                 TopBar(
                     leading = { Avatar("", 1, size = AvatarSize.Xl, onClick = onLogbook) },
-                    center = { SyncStatusPill(SyncStatus.OnThisPhone) },
+                    center = { SyncStatusPill(LocalSyncStatus.current) },
                     trailing = { CtIconButton(LucideIcon.EllipsisVertical, "Settings", onSettings) },
                 )
             }

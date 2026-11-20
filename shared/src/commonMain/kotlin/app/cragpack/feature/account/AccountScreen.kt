@@ -24,7 +24,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import app.cragpack.data.AppGraph
-import app.cragpack.data.AuthException
+import app.cragpack.data.SupabaseException
 import app.cragpack.designsystem.component.CtBackHandler
 import app.cragpack.designsystem.component.CtBottomSheet
 import app.cragpack.designsystem.component.CtButton
@@ -118,8 +118,8 @@ class AccountViewModel(private val graph: AppGraph) : ViewModel() {
     }
 
     private fun explain(e: Throwable) = when {
-        e is AuthException && e.code == "email_not_confirmed" -> "Your email isn't confirmed yet. Tap the link we sent to ${form.email.trim()}."
-        e is AuthException -> e.message.orEmpty()
+        e is SupabaseException && e.code == "email_not_confirmed" -> "Your email isn't confirmed yet. Tap the link we sent to ${form.email.trim()}."
+        e is SupabaseException -> e.message.orEmpty()
         else -> "Can't reach Cragpack. Check your connection and try again."
     }
 }

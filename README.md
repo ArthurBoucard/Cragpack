@@ -27,6 +27,7 @@ androidApp/     Android shell: MainActivity only
 iosApp/         iOS shell: XcodeGen spec + one Swift file
 designsystem/   tokens (generated), fonts, Lucide icons, Ct* components
 shared/         the app: domain, data, features, App() root
+supabase/       server tables, access rules and functions (SQL), and check.mjs that tests them
 design/         handoff reference: screens, tokens JSON, grades JSON, icon SVGs
 docs/           handoff spec: brief, decisions, screens, data model, tech spec, build plan
 tools/          lucide-to-vector.mjs (SVG icons -> Compose vectors + LucideIcon enum)
@@ -36,7 +37,7 @@ Inside `shared/src/commonMain/kotlin/app/cragpack/`:
 
 ```
 domain/      pure Kotlin: entities and rules (grades, trip timing, formatting). No framework imports.
-data/        AppGraph (wiring), repositories over SQLDelight; sync with Supabase arrives in Phase 2
+data/        AppGraph (wiring), repositories over SQLDelight, Supabase client, sync (SyncTables.kt lists what syncs)
 feature/x/   one file per screen: its ViewModel and UI state at the top, the composables below
 ```
 
@@ -44,6 +45,11 @@ The schema lives in `shared/src/commonMain/sqldelight/`. Until the first release
 after a schema change, clear the app's data (or reinstall).
 
 Supabase keys go in `local.properties` (never committed): `supabase.url=…` and `supabase.key=…` (publishable key only).
+Without them the app builds and runs on this phone only (no accounts).
+
+**Supabase setup:** run each `supabase/NNN_*.sql` file, in order, in the dashboard's SQL editor (re-running one is safe).
+Before changing them, check them locally: `npm i --no-save @electric-sql/pglite && node supabase/check.mjs`.
+A synced table changes in three places: its `.sq` file, `SyncTables.kt` and the SQL.
 
 ## Rules
 

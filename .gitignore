@@ -12,3 +12,6 @@ iosApp/*.xcodeproj
 iosApp/iosApp/Info.plist
 xcuserdata/
 DerivedData/
+
+# supabase/check.mjs installs PGlite here
+node_modules/

@@ -42,6 +42,7 @@ import app.cragpack.domain.settings.formatBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -50,6 +51,7 @@ class SettingsViewModel(private val graph: AppGraph) : ViewModel() {
     val storageBytes = graph.settings.observeStorageBytes().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
     val account = graph.account.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val accountsAvailable = graph.account.available
+    val unsynced = graph.sync.observe().map { it.pending }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     fun setGradeDisplay(value: GradeDisplay) = write { graph.settings.setGradeDisplay(value) }
     fun setTheme(value: Theme) = write { graph.settings.setTheme(value) }
@@ -63,13 +65,14 @@ private val gradeLabels = listOf(GradeDisplay.AsEntered to "As entered", GradeDi
 
 /**
  * Settings (27). Without an account the account row reads "Create account" and opens the account prompt (design gap, decided).
- * ponytail: Delete account arrives with sync (Phase 2); Storage management (remove offline copies) with the offline pack (Phase 3).
+ * ponytail: Delete account arrives with crew management (Phase 2); Storage management (remove offline copies) with the offline pack (Phase 3).
  */
 @Composable
 fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: () -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val storage by vm.storageBytes.collectAsStateWithLifecycle()
     val account by vm.account.collectAsStateWithLifecycle()
+    val unsynced by vm.unsynced.collectAsStateWithLifecycle()
     var prompt by rememberSaveable { mutableStateOf(false) }
     var confirmSignOut by rememberSaveable { mutableStateOf(false) }
     CtScreen(
@@ -78,7 +81,11 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: (
             CtConfirmDialog(
                 visible = confirmSignOut,
                 title = "Sign out?",
-                text = "Your trips leave this phone. They come back when you sign in again.",
+                text = when (unsynced) {
+                    0 -> ""
+                    1 -> "1 edit hasn't synced yet and will be lost. "
+                    else -> "$unsynced edits haven't synced yet and will be lost. "
+                } + "Your trips leave this phone. They come back when you sign in again.",
                 confirmLabel = "Sign out",
                 onConfirm = { confirmSignOut = false; vm.signOut() },
                 onDismiss = { confirmSignOut = false },

@@ -39,7 +39,7 @@ class AccountRepositoryTest {
         }
         respond(body, status, headersOf("Content-Type", "application/json"))
     }
-    private val graph = AppGraph(testDriver(), Clock.System, SupabaseAuth(HttpClient(engine), "https://x.supabase.co", "key"))
+    private val graph = AppGraph(testDriver(), Clock.System, Supabase(HttpClient(engine), "https://x.supabase.co", "key"))
 
     @Test
     fun signingInKeepsEverythingMadeOnThePhone() = runTest {
@@ -86,7 +86,7 @@ class AccountRepositoryTest {
 
     @Test
     fun supabaseErrorsComeBackInItsWords() = runTest {
-        val error = assertFailsWith<AuthException> { graph.account.resendConfirmation("lea@example.com") }
+        val error = assertFailsWith<SupabaseException> { graph.account.resendConfirmation("lea@example.com") }
         assertEquals("Invalid login credentials", error.message)
         assertEquals("invalid_credentials", error.code)
     }

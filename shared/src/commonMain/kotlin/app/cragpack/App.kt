@@ -14,10 +14,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import app.cragpack.data.AppGraph
+import app.cragpack.data.SyncState
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.theme.ThemeMode
 import app.cragpack.domain.settings.Theme
 import app.cragpack.feature.LocalGradeDisplay
+import app.cragpack.feature.LocalSyncStatus
+import app.cragpack.feature.toStatus
 import app.cragpack.feature.account.AccountScreen
 import app.cragpack.feature.account.AccountViewModel
 import app.cragpack.feature.gear.GearViewModel
@@ -71,8 +74,9 @@ fun App(graph: AppGraph) {
         Theme.Dark -> ThemeMode.Dark
         Theme.Sunlight -> ThemeMode.Sunlight
     }
+    val sync by remember { graph.sync.observe() }.collectAsState(SyncState(signedIn = false, pending = 0))
     CragpackTheme(mode) {
-        CompositionLocalProvider(LocalGradeDisplay provides settings.gradeDisplay) { AppNav(graph) }
+        CompositionLocalProvider(LocalGradeDisplay provides settings.gradeDisplay, LocalSyncStatus provides sync.toStatus()) { AppNav(graph) }
     }
 }
 

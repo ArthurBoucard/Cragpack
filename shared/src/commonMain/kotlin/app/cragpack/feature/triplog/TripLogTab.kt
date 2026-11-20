@@ -32,7 +32,7 @@ import app.cragpack.designsystem.component.CtText
 import app.cragpack.designsystem.component.EmptyState
 import app.cragpack.designsystem.component.GradeChip
 import app.cragpack.designsystem.component.ListRow
-import app.cragpack.designsystem.component.SyncStatus
+import app.cragpack.feature.LocalSyncStatus
 import app.cragpack.designsystem.component.SyncStatusPill
 import app.cragpack.designsystem.component.TopBar
 import app.cragpack.designsystem.icon.LucideIcon
@@ -86,7 +86,7 @@ fun TripLogTab(vm: TripLogViewModel, bottom: PaddingValues, onBack: () -> Unit, 
         item {
             TopBar(
                 leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) },
-                center = { SyncStatusPill(SyncStatus.OnThisPhone) },
+                center = { SyncStatusPill(LocalSyncStatus.current) },
             )
         }
         item { CtText("Log", Modifier.padding(top = 24.dp, start = 4.dp, end = 4.dp), style = CragpackTheme.type.h1) }

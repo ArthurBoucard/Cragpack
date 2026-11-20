@@ -38,7 +38,7 @@ import app.cragpack.designsystem.component.NowBadge
 import app.cragpack.designsystem.component.PhotoSurface
 import app.cragpack.designsystem.component.SegmentedProgress
 import app.cragpack.designsystem.component.StatTile
-import app.cragpack.designsystem.component.SyncStatus
+import app.cragpack.feature.LocalSyncStatus
 import app.cragpack.designsystem.component.SyncStatusPill
 import app.cragpack.designsystem.component.TabDock
 import app.cragpack.designsystem.component.TopBar
@@ -128,7 +128,7 @@ private fun Overview(ui: TripUi, bottom: androidx.compose.ui.unit.Dp, onBack: ()
             Column(Modifier.padding(start = SizeTokens.edge, end = SizeTokens.edge, bottom = SizeTokens.edge)) {
                 TopBar(
                     leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) },
-                    center = { SyncStatusPill(SyncStatus.OnThisPhone) },
+                    center = { SyncStatusPill(LocalSyncStatus.current) },
                     trailing = { CtIconButton(LucideIcon.EllipsisVertical, "Trip settings", onSettings) },
                 )
                 Spacer(Modifier.height(120.dp))

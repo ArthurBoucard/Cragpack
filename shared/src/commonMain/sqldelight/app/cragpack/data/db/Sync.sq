@@ -1,0 +1,41 @@
+-- Device only: what's waiting to reach Supabase, and how far each trip has been pulled (tech spec §3).
+-- Triggers made from SyncTables.kt fill the outbox on every local write; see SyncRepository.
+
+-- One row per changed field ('*' = a whole new row). A newer change to the same field replaces the row,
+-- so it gets a new id (AUTOINCREMENT never reuses one): a push only clears the ids it actually sent.
+CREATE TABLE outbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tbl TEXT NOT NULL,
+    row_key TEXT NOT NULL,     -- the row's key; composite keys joined with '|'
+    col TEXT NOT NULL,
+    UNIQUE (tbl, row_key, col)
+);
+
+-- Pull cursors ('<trip id>' or 'me' -> server time), 'uploaded' (the account whose phone data is queued),
+-- and 'applying' while a pull is written, which keeps the triggers quiet.
+CREATE TABLE sync_state (
+    name TEXT NOT NULL PRIMARY KEY,
+    data TEXT NOT NULL
+);
+
+-- "N edits to sync": rows waiting, however many of their fields changed.
+countPending:
+SELECT count(*) FROM (SELECT DISTINCT tbl, row_key FROM outbox);
+
+selectOutbox:
+SELECT id, tbl, row_key, col FROM outbox;
+
+deleteSent:
+DELETE FROM outbox WHERE id IN ?;
+
+selectState:
+SELECT data FROM sync_state WHERE name = ?;
+
+selectCursors:
+SELECT name, data FROM sync_state WHERE name NOT IN ('uploaded', 'applying');
+
+putState:
+INSERT OR REPLACE INTO sync_state (name, data) VALUES (?, ?);
+
+deleteState:
+DELETE FROM sync_state WHERE name = ?;

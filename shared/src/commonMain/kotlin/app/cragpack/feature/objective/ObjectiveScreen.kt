@@ -66,7 +66,7 @@ import app.cragpack.designsystem.component.MediaViewer
 import app.cragpack.designsystem.component.LightStatusBarIcons
 import app.cragpack.designsystem.component.PhotoSurface
 import app.cragpack.designsystem.component.StarToggle
-import app.cragpack.designsystem.component.SyncStatus
+import app.cragpack.feature.LocalSyncStatus
 import app.cragpack.designsystem.component.SyncStatusPill
 import app.cragpack.designsystem.component.TopBar
 import app.cragpack.designsystem.icon.LucideIcon
@@ -232,7 +232,7 @@ fun ObjectiveScreen(vm: ObjectiveViewModel, onBack: () -> Unit, onEdit: () -> Un
                 Column(Modifier.padding(start = SizeTokens.edge, end = SizeTokens.edge, bottom = SizeTokens.edge)) {
                     TopBar(
                         leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) },
-                        center = { SyncStatusPill(SyncStatus.OnThisPhone) },
+                        center = { SyncStatusPill(LocalSyncStatus.current) },
                         trailing = { CtIconButton(LucideIcon.EllipsisVertical, "More", { sheet = Sheet.More }) },
                     )
                     Spacer(Modifier.height(140.dp))

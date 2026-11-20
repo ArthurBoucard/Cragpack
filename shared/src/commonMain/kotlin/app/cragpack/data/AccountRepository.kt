@@ -22,7 +22,7 @@ data class Account(val name: String, val email: String, val provider: String)
  */
 class AccountRepository internal constructor(
     private val db: CragpackDb,
-    private val auth: SupabaseAuth?,
+    private val auth: Supabase?,
     private val me: MutableStateFlow<String>,
     private val now: () -> Long,
 ) {
@@ -94,7 +94,7 @@ class AccountRepository internal constructor(
         db.settingQueries.put(EXPIRES, session.expiresAt.toString())
     }
 
-    private fun auth() = auth ?: throw AuthException("Accounts aren't set up in this build", null)
+    private fun auth() = auth ?: throw SupabaseException("Accounts aren't set up in this build", null)
 
     private companion object {
         const val LOCAL = "local"
