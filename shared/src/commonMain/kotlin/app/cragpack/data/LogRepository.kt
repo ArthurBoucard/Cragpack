@@ -9,7 +9,10 @@ import app.cragpack.domain.log.LogStyle
 import app.cragpack.domain.trip.Person
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.LocalDate
 
@@ -46,10 +49,11 @@ data class LogUndo(val added: String?, val removed: List<String>)
 
 class LogRepository internal constructor(
     private val db: CragpackDb,
-    private val myId: String,
+    private val me: StateFlow<String>,
     private val now: () -> Long,
     private val today: () -> LocalDate,
 ) {
+    private val myId get() = me.value
     private val io = Dispatchers.IO
     private val q get() = db.logEntryQueries
 
@@ -106,8 +110,9 @@ class LogRepository internal constructor(
             }
         }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun observeLogbook(): Flow<List<LogbookEntry>> =
-        q.selectMine(myId).asFlow().mapToList(io).map { rows ->
+        me.flatMapLatest { q.selectMine(it).asFlow().mapToList(io) }.map { rows ->
             rows.map {
                 LogbookEntry(
                     it.id, LogStyle.of(it.style), LocalDate.parse(it.date), it.snapshot_name,

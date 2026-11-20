@@ -89,7 +89,7 @@ class ObjectiveViewModel(private val graph: AppGraph, private val id: String) : 
     /** null while loading, and once deleted. */
     val state = graph.objectives.observeObjective(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val logs = graph.logs.observeForObjective(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    val myId = graph.myId
+    val myId get() = graph.myId
 
     /** Each video's first frame (absolute path) by beta id, made the first time the video is shown. */
     val frames = state.map { detail ->

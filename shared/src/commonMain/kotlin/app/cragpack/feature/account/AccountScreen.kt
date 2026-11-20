@@ -1,0 +1,200 @@
+package app.cragpack.feature.account
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import app.cragpack.data.AppGraph
+import app.cragpack.data.AuthException
+import app.cragpack.designsystem.component.CtBackHandler
+import app.cragpack.designsystem.component.CtBottomSheet
+import app.cragpack.designsystem.component.CtButton
+import app.cragpack.designsystem.component.CtButtonSize
+import app.cragpack.designsystem.component.CtButtonStyle
+import app.cragpack.designsystem.component.CtIconButton
+import app.cragpack.designsystem.component.CtScreen
+import app.cragpack.designsystem.component.CtText
+import app.cragpack.designsystem.component.CtTextField
+import app.cragpack.designsystem.component.CtaDock
+import app.cragpack.designsystem.component.TopBar
+import app.cragpack.designsystem.icon.LucideIcon
+import app.cragpack.designsystem.theme.CragpackTheme
+import app.cragpack.designsystem.tokens.SizeTokens
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+
+/** Why the account prompt opened: the action it continues once signed in (tech spec §2). */
+enum class AccountReason(val title: String) {
+    Invite("Create an account to invite your crew"),
+    Join("Create an account to join the trip"),
+    Share("Create an account to share a link"),
+    Sync("Create an account to sync your phones"),
+}
+
+/**
+ * Account prompt (13): only before an action that needs others or the cloud (D4). ✕ = Not now.
+ * ponytail: Apple and Google buttons arrive with their sign-in (Phase 2, last step);
+ * the Terms / Privacy line with the policy itself (Phase 5).
+ */
+@Composable
+fun BoxScope.AccountPromptSheet(reason: AccountReason?, onDismiss: () -> Unit, onEmail: () -> Unit) {
+    CtBottomSheet(reason != null, reason?.title.orEmpty(), onDismiss) {
+        CtText("Your trips on this phone come with you.", color = CragpackTheme.colors.ink2)
+        CtButton("Continue with email", onEmail, style = CtButtonStyle.Ghost, size = CtButtonSize.Wide, icon = LucideIcon.Mail)
+    }
+}
+
+enum class AccountMode { Create, SignIn, CheckEmail }
+
+data class AccountForm(
+    val mode: AccountMode = AccountMode.Create,
+    val name: String = "",
+    val email: String = "",
+    val password: String = "",
+    val busy: Boolean = false,
+    /** What to do next, or what went wrong. */
+    val message: String? = null,
+    val isError: Boolean = false,
+) {
+    val canSubmit get() = !busy && email.isNotBlank() && password.isNotEmpty() && (mode != AccountMode.Create || name.isNotBlank())
+}
+
+class AccountViewModel(private val graph: AppGraph) : ViewModel() {
+    var form by mutableStateOf(AccountForm())
+
+    fun switchMode(mode: AccountMode) {
+        form = form.copy(mode = mode, message = null)
+    }
+
+    /** True once signed in. */
+    suspend fun submit(): Boolean {
+        val f = form
+        form = f.copy(busy = true, message = null)
+        return try {
+            val signedIn = when (f.mode) {
+                AccountMode.Create -> graph.account.signUp(f.name, f.email, f.password)
+                else -> true.also { graph.account.signIn(f.email, f.password) }
+            }
+            if (!signedIn) form = form.copy(mode = AccountMode.CheckEmail)
+            signedIn
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            form = form.copy(message = explain(e), isError = true)
+            false
+        } finally {
+            form = form.copy(busy = false)
+        }
+    }
+
+    suspend fun resend() {
+        form = form.copy(
+            message = runCatching { graph.account.resendConfirmation(form.email) }
+                .fold({ "Sent again. Check your spam folder too." }, ::explain),
+            isError = false,
+        )
+    }
+
+    private fun explain(e: Throwable) = when {
+        e is AuthException && e.code == "email_not_confirmed" -> "Your email isn't confirmed yet. Tap the link we sent to ${form.email.trim()}."
+        e is AuthException -> e.message.orEmpty()
+        else -> "Can't reach Cragpack. Check your connection and try again."
+    }
+}
+
+/**
+ * Create account (14), with its two design gaps: "I have an account" (sign in) and, while Supabase waits
+ * for the email to be confirmed, a Check your email step that signs in with what was just typed.
+ */
+@Composable
+fun AccountScreen(vm: AccountViewModel, onBack: () -> Unit, onDone: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val form = vm.form
+    val back = { if (form.mode == AccountMode.CheckEmail) vm.switchMode(AccountMode.Create) else onBack() }
+    CtBackHandler(onBack = back)
+    CtScreen(
+        dock = {
+            CtaDock(
+                if (form.mode == AccountMode.Create) "Create account" else "Sign in",
+                LucideIcon.ArrowRight,
+                enabled = form.canSubmit,
+                onClick = { scope.launch { if (vm.submit()) onDone() } },
+            )
+        },
+    ) { bottom ->
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = SizeTokens.edge),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            TopBar(
+                leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", back) },
+                center = {
+                    val title = when (form.mode) {
+                        AccountMode.Create -> "Create account"
+                        AccountMode.SignIn -> "Sign in"
+                        AccountMode.CheckEmail -> "Check your email"
+                    }
+                    CtText(title, style = CragpackTheme.type.title)
+                },
+            )
+            if (form.mode == AccountMode.CheckEmail) {
+                CtText("We sent a link to ${form.email.trim()}. Tap it to confirm your account, then come back here and sign in.")
+                CtButton("Resend email", { scope.launch { vm.resend() } }, style = CtButtonStyle.Ghost, size = CtButtonSize.Sm)
+            } else {
+                Fields(vm, form)
+                val other = if (form.mode == AccountMode.Create) AccountMode.SignIn else AccountMode.Create
+                CtButton(
+                    if (other == AccountMode.SignIn) "I have an account" else "Create an account",
+                    { vm.switchMode(other) },
+                    style = CtButtonStyle.Ghost,
+                    size = CtButtonSize.Sm,
+                )
+            }
+            form.message?.let {
+                CtText(it, Modifier.padding(horizontal = 8.dp), color = if (form.isError) CragpackTheme.colors.dangerInk else CragpackTheme.colors.ink2)
+            }
+            Spacer(Modifier.height(bottom.calculateBottomPadding()))
+        }
+    }
+}
+
+@Composable
+private fun Fields(vm: AccountViewModel, form: AccountForm) {
+    if (form.mode == AccountMode.Create) {
+        CtTextField(
+            form.name, { vm.form = form.copy(name = it) }, "Name",
+            placeholder = "What your crew calls you",
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
+        )
+    }
+    CtTextField(
+        form.email, { vm.form = form.copy(email = it) }, "Email",
+        placeholder = "you@example.com",
+        keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+    )
+    CtTextField(
+        form.password, { vm.form = form.copy(password = it) }, "Password",
+        placeholder = if (form.mode == AccountMode.Create) "At least 6 characters" else "",
+        keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        visualTransformation = PasswordVisualTransformation(),
+    )
+}

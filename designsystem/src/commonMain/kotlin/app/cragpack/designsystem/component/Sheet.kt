@@ -70,7 +70,7 @@ fun BoxScope.CtBottomSheet(
         ) {
             Box(Modifier.align(Alignment.CenterHorizontally).size(44.dp, 5.dp).clip(RoundedCornerShape(3.dp)).background(c.line))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CtText(title, Modifier.weight(1f), style = CragpackTheme.type.h3, maxLines = 1)
+                CtText(title, Modifier.weight(1f), style = CragpackTheme.type.h3, maxLines = 2)
                 CtIconButton(LucideIcon.X, "Close", onDismiss, size = CtIconButtonSize.Sm)
             }
             content()

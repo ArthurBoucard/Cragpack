@@ -18,6 +18,8 @@ import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.theme.ThemeMode
 import app.cragpack.domain.settings.Theme
 import app.cragpack.feature.LocalGradeDisplay
+import app.cragpack.feature.account.AccountScreen
+import app.cragpack.feature.account.AccountViewModel
 import app.cragpack.feature.gear.GearViewModel
 import app.cragpack.feature.logbook.LogSendScreen
 import app.cragpack.feature.logbook.LogSendViewModel
@@ -57,6 +59,7 @@ import kotlinx.serialization.Serializable
 @Serializable private data object LogbookRoute
 @Serializable private data class EditDayRoute(val tripId: String, val dayId: String)
 @Serializable private data object LogSendRoute
+@Serializable private data object AccountRoute
 
 /** Root of the app on both platforms. Trips home is the root (docs/03 navigation model). */
 @Composable
@@ -144,7 +147,11 @@ private fun AppNav(graph: AppGraph) {
             )
         }
         composable<LogSendRoute> { LogSendScreen(viewModel { LogSendViewModel(graph) }, onClose = { nav.back() }) }
-        composable<SettingsRoute> { SettingsScreen(viewModel { SettingsViewModel(graph) }, onBack = { nav.back() }) }
+        composable<SettingsRoute> {
+            SettingsScreen(viewModel { SettingsViewModel(graph) }, onBack = { nav.back() }, onCreateAccount = { nav.open(AccountRoute) })
+        }
+        // Back to whatever asked for an account: that screen carries on now that there is one (tech spec §2).
+        composable<AccountRoute> { AccountScreen(viewModel { AccountViewModel(graph) }, onBack = { nav.back() }, onDone = { nav.back() }) }
         composable<TripSettingsRoute> { entry ->
             val tripId = entry.toRoute<TripSettingsRoute>().tripId
             TripSettingsScreen(

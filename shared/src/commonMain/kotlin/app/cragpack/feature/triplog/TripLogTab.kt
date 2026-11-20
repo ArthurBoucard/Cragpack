@@ -43,8 +43,8 @@ import app.cragpack.feature.text
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 
-class TripLogViewModel(graph: AppGraph, tripId: String) : ViewModel() {
-    val myId = graph.myId
+class TripLogViewModel(private val graph: AppGraph, tripId: String) : ViewModel() {
+    val myId get() = graph.myId
     /** null while loading. */
     val entries = graph.logs.observeTripLog(tripId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }

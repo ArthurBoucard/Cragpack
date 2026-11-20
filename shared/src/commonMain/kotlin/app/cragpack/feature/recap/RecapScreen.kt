@@ -51,8 +51,8 @@ import kotlinx.datetime.DayOfWeek
 
 data class RecapUi(val trip: Trip, val crewSize: Int, val recap: Recap)
 
-class RecapViewModel(graph: AppGraph, tripId: String) : ViewModel() {
-    val myId = graph.myId
+class RecapViewModel(private val graph: AppGraph, tripId: String) : ViewModel() {
+    val myId get() = graph.myId
 
     /** null while loading, or if the trip is gone. */
     val state = combine(

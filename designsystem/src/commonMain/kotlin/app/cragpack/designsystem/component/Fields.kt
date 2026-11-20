@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.tokens.SizeTokens
@@ -45,6 +46,7 @@ fun CtTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
     area: Boolean = false,
     mono: Boolean = false,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val c = CragpackTheme.colors
@@ -66,6 +68,7 @@ fun CtTextField(
             cursorBrush = SolidColor(c.ink),
             interactionSource = interaction,
             keyboardOptions = keyboardOptions,
+            visualTransformation = visualTransformation,
             decorationBox = { inner ->
                 InputBox(focused, area = area, trailing = trailing) {
                     if (value.isEmpty()) CtText(placeholder, style = style, color = c.ink2, maxLines = if (area) Int.MAX_VALUE else 1)
