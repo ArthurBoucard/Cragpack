@@ -181,5 +181,81 @@ class SyncRepositoryTest {
         assertEquals(2, graph.trips.observeTrips().first().size)
     }
 
+    /** Planned on day 1 and synced; then I move it to day 2 offline while Tom moves it to day 3. */
+    private suspend fun twoMovesAtOnce(): Pair<String, List<String>> {
+        val trip = graph.trips.create("Font Easter", "Fontainebleau", LocalDate.parse("2026-04-17"), LocalDate.parse("2026-04-19"))
+        graph.account.signIn("lea@example.com", "secret")
+        val objective = graph.objectives.add(trip, "Carnage", ClimbStyle.Boulder, Grade(GradeScale.Font, "7B+"), null)
+        val days = graph.plan.observeDays(trip).first().map { it.id }
+        graph.plan.place(objective, days[0], 0)
+        pull = """{"trips":["$trip"],"cursor":"2026-11-20T10:00:00+00:00"}"""
+        graph.sync.syncNow()
+
+        graph.plan.place(objective, days[1], 0) // mine, not pushed yet
+        pull = """{"trips":["$trip"],"cursor":"2026-11-20T10:05:00+00:00",
+            "trip_member":[{"trip_id":"$trip","user_id":"$tom","role":"member","color_index":2,"joined_at":4102444800000,"updated_at":5,"deleted_at":null}],
+            "profile":[{"id":"$tom","name":"Tom","updated_at":5}],
+            "plan_item":[{"objective_id":"$objective","trip_id":"$trip","day_id":"${days[2]}","order_key":"a","updated_at":1795000000000,
+                "deleted_at":null,"updated_by":"$tom"}]}"""
+        pushed.clear()
+        edited.clear()
+        graph.sync.syncNow()
+        return trip to days
+    }
+
+    @Test
+    fun twoMovesToDifferentDaysWaitForAChoice() = runTest {
+        val (trip, days) = twoMovesAtOnce()
+
+        val conflict = graph.plan.observeConflicts(trip).first().single()
+        assertEquals("Carnage", conflict.name)
+        assertEquals(LocalDate.parse("2026-04-18"), conflict.mine.date)
+        assertEquals(LocalDate.parse("2026-04-19"), conflict.theirs.date)
+        assertEquals("Tom", conflict.theirs.by?.name)
+        assertEquals(days[1], graph.plan.observePlan(trip).first().single().dayId) // still mine on this phone
+        assertEquals(null, pushed["plan_item"]) // and mine waits for the choice
+    }
+
+    @Test
+    fun keepMineSendsMyMove() = runTest {
+        val (trip, days) = twoMovesAtOnce()
+
+        graph.plan.keepMine(graph.plan.observeConflicts(trip).first().single().objectiveId)
+        graph.sync.syncNow()
+
+        assertEquals(emptyList(), graph.plan.observeConflicts(trip).first())
+        assertEquals(days[1], pushed.getValue("plan_item").single().str("day_id"))
+    }
+
+    @Test
+    fun acceptTheirsTakesTheirMoveAndDropsMine() = runTest {
+        val (trip, days) = twoMovesAtOnce()
+
+        graph.plan.acceptTheirs(graph.plan.observeConflicts(trip).first().single().objectiveId)
+
+        assertEquals(days[2], graph.plan.observePlan(trip).first().single().dayId)
+        assertEquals(0, graph.sync.observe().first().pending)
+    }
+
+    @Test
+    fun aReorderWithinTheSameDayIsNoConflict() = runTest {
+        val trip = graph.trips.create("Font Easter", "Fontainebleau", LocalDate.parse("2026-04-17"), LocalDate.parse("2026-04-18"))
+        graph.account.signIn("lea@example.com", "secret")
+        val objective = graph.objectives.add(trip, "Carnage", ClimbStyle.Boulder, Grade(GradeScale.Font, "7B+"), null)
+        val days = graph.plan.observeDays(trip).first().map { it.id }
+        graph.plan.place(objective, days[0], 0)
+        pull = """{"trips":["$trip"],"cursor":"2026-11-20T10:00:00+00:00"}"""
+        graph.sync.syncNow()
+        graph.plan.place(objective, days[1], 0)
+        pull = """{"trips":["$trip"],"cursor":"2026-11-20T10:05:00+00:00",
+            "plan_item":[{"objective_id":"$objective","trip_id":"$trip","day_id":"${days[0]}","order_key":"b","updated_at":1795000000000,
+                "deleted_at":null,"updated_by":"$tom"}]}"""
+
+        graph.sync.syncNow()
+
+        assertEquals(emptyList(), graph.plan.observeConflicts(trip).first())
+        assertEquals(days[1], pushed.getValue("plan_item").last().str("day_id")) // mine goes up and wins
+    }
+
     private fun JsonObject.str(key: String) = getValue(key).toString().trim('"')
 }

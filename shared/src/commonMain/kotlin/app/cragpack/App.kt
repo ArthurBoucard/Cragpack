@@ -39,6 +39,7 @@ import app.cragpack.feature.objective.ObjectiveFormScreen
 import app.cragpack.feature.objective.ObjectiveFormViewModel
 import app.cragpack.feature.objective.ObjectiveScreen
 import app.cragpack.feature.objective.ObjectiveViewModel
+import app.cragpack.feature.plan.ConflictViewModel
 import app.cragpack.feature.plan.EditDayScreen
 import app.cragpack.feature.plan.EditDayViewModel
 import app.cragpack.feature.plan.PlanViewModel
@@ -143,6 +144,7 @@ private fun AppNav(graph: AppGraph) {
                 viewModel { TripLogViewModel(graph, id) },
                 viewModel { PlanViewModel(graph, id) },
                 viewModel { GearViewModel(graph, id) },
+                viewModel { ConflictViewModel(graph, id) },
                 onBack = { nav.back() },
                 onAddObjective = { nav.open(ObjectiveFormRoute(id)) },
                 onOpenObjective = { nav.open(ObjectiveRoute(it)) },

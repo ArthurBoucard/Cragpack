@@ -1,5 +1,7 @@
 package app.cragpack.feature.trip
 
+import app.cragpack.feature.plan.ConflictSheet
+import app.cragpack.feature.plan.ConflictViewModel
 import androidx.compose.ui.Alignment
 import app.cragpack.designsystem.component.CtIconButtonStyle
 import androidx.compose.ui.semantics.Role
@@ -89,6 +91,7 @@ fun TripScreen(
     log: TripLogViewModel,
     plan: PlanViewModel,
     gear: GearViewModel,
+    conflicts: ConflictViewModel,
     onBack: () -> Unit,
     onAddObjective: () -> Unit,
     onOpenObjective: (String) -> Unit,
@@ -106,6 +109,7 @@ fun TripScreen(
             if (tab == 1) WishlistFilterSheet(wishlist)
             if (tab == 2) PlanMoveSheet(plan)
             if (tab == 3) GearSheets(gear)
+            ConflictSheet(conflicts)
         },
     ) { bottom ->
         val state = ui ?: return@CtScreen
