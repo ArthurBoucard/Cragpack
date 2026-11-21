@@ -4,8 +4,6 @@ import app.cragpack.feature.plan.ConflictSheet
 import app.cragpack.feature.plan.ConflictViewModel
 import androidx.compose.ui.Alignment
 import app.cragpack.designsystem.component.CtIconButtonStyle
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -155,7 +153,7 @@ private fun Overview(
                 val place = listOf(trip.crag, formatDateRange(trip.start, trip.end)).filter { it.isNotBlank() }.joinToString(" · ")
                 CtText(place, Modifier.padding(top = 8.dp, bottom = 16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AvatarStack(crew.map { it.name to it.colorIndex }, Modifier.clickable(onClickLabel = "Crew", role = Role.Button, onClick = onCrew), size = AvatarSize.Xl)
+                    AvatarStack(crew.map { it.name to it.colorIndex }, size = AvatarSize.Xl, onClick = onCrew)
                     CtIconButton(LucideIcon.Plus, "Invite", onInvite, style = CtIconButtonStyle.On)
                 }
             }

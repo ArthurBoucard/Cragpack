@@ -1,5 +1,7 @@
 package app.cragpack.feature.trips
 
+import androidx.compose.foundation.layout.Box
+import app.cragpack.designsystem.component.ErrorRow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalClipboardManager
 import app.cragpack.domain.invite.INVITE_HOST
@@ -76,6 +78,9 @@ data class TripCardUi(
 )
 
 class TripsViewModel(graph: AppGraph) : ViewModel() {
+    /** Your name for the avatar; blank (the generic person) without an account. */
+    val myName = graph.account.observe().map { it?.name.orEmpty() }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
     /** null while loading. */
     val trips = graph.trips.observeTrips().map { items ->
         val today = graph.today()
@@ -105,6 +110,7 @@ fun TripsScreen(
     onJoin: (token: String) -> Unit,
 ) {
     val trips by vm.trips.collectAsStateWithLifecycle()
+    val myName by vm.myName.collectAsStateWithLifecycle()
     var pasting by rememberSaveable { mutableStateOf(false) }
     CtScreen(
         dock = { CtaDock("New trip", LucideIcon.Plus, onNewTrip) },
@@ -116,7 +122,7 @@ fun TripsScreen(
         ) {
             item {
                 TopBar(
-                    leading = { Avatar("", 1, size = AvatarSize.Xl, onClick = onLogbook) },
+                    leading = { Avatar(myName, 1, size = AvatarSize.Xl, onClick = onLogbook) },
                     center = { SyncStatusPill(LocalSyncStatus.current) },
                     trailing = { CtIconButton(LucideIcon.EllipsisVertical, "Settings", onSettings) },
                 )
@@ -140,7 +146,9 @@ fun TripsScreen(
             }
             // Design gap: with trips already here, a link still needs somewhere to go until links open the app.
             if (!trips.isNullOrEmpty()) item {
-                CtButton("Join a trip with a link", { pasting = true }, Modifier.fillMaxWidth(), style = CtButtonStyle.Ghost, icon = LucideIcon.Link)
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CtButton("Join a trip with a link", { pasting = true }, style = CtButtonStyle.Ghost, size = CtButtonSize.Sm, icon = LucideIcon.Link)
+                }
             }
         }
     }
@@ -199,7 +207,7 @@ private fun BoxScope.PasteLinkSheet(visible: Boolean, onDismiss: () -> Unit, onJ
             placeholder = "$INVITE_HOST/j/…",
             keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Uri),
         )
-        if (wrong) CtText("That isn't a Cragpack invite link. Copy the whole link and paste it again.", color = CragpackTheme.colors.dangerInk)
+        if (wrong) ErrorRow("That isn't a Cragpack invite link. Copy the whole link and paste it again.")
         CtButton("Open invite", {
             val token = inviteToken(text)
             if (token == null) wrong = true else { text = ""; onJoin(token) }

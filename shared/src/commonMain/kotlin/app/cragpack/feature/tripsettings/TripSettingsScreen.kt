@@ -1,5 +1,6 @@
 package app.cragpack.feature.tripsettings
 
+import app.cragpack.designsystem.component.ErrorRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -229,7 +230,7 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
                     CtButton("Delete trip", { confirmDelete = true }, Modifier.weight(1f), style = CtButtonStyle.Danger, icon = LucideIcon.Trash2)
                 }
             }
-            vm.leaveError?.let { CtText(it, Modifier.padding(horizontal = 8.dp), color = CragpackTheme.colors.dangerInk) }
+            vm.leaveError?.let { ErrorRow(it) }
             Spacer(Modifier.height(bottom.calculateBottomPadding()))
         }
     }

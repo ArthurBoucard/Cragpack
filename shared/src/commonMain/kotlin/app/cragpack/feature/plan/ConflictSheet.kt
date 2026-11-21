@@ -18,6 +18,7 @@ import app.cragpack.designsystem.component.CtButtonSize
 import app.cragpack.designsystem.component.CtButtonStyle
 import app.cragpack.designsystem.component.CtRadioRow
 import app.cragpack.designsystem.component.GradeChip
+import app.cragpack.designsystem.component.GradeChipSize
 import app.cragpack.feature.text
 import app.cragpack.designsystem.icon.LucideIcon
 import app.cragpack.domain.format.formatTime
@@ -58,7 +59,7 @@ fun BoxScope.ConflictSheet(vm: ConflictViewModel) {
         conflict != null,
         conflict?.let { "${it.name} moved twice" }.orEmpty(),
         onDismiss = { conflict?.let { later = later + it.objectiveId } },
-        titleLeading = conflict?.let { c -> { GradeChip(c.grade.text(), c.grade.band) } },
+        titleLeading = conflict?.let { c -> { GradeChip(c.grade.text(), c.grade.band, size = GradeChipSize.Sm) } },
     ) {
         val c = conflict ?: return@CtBottomSheet
         val mine = c.mine.copy(by = me)

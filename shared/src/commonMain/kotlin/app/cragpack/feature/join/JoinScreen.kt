@@ -1,5 +1,6 @@
 package app.cragpack.feature.join
 
+import app.cragpack.designsystem.component.ErrorRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -170,7 +171,7 @@ private fun Invitation(p: InvitePreview, error: String?) {
                 AvatarStack(p.crew, Modifier.padding(top = 8.dp), size = AvatarSize.Xl)
             }
         }
-        error?.let { CtText(it, Modifier.padding(horizontal = SizeTokens.edge + 8.dp), color = CragpackTheme.colors.dangerInk) }
+        error?.let { ErrorRow(it, Modifier.padding(horizontal = SizeTokens.edge)) }
     }
 }
 

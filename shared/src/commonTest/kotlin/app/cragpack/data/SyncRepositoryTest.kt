@@ -316,5 +316,15 @@ class SyncRepositoryTest {
         assertEquals(emptyList(), graph.plan.observeConflicts(trip).first())
     }
 
+    @Test
+    fun anUnplanSentAsAFieldEditStillSettlesThePlanBase() = runTest {
+        val (trip, objective, _) = plannedAndSynced()
+        graph.trips.changeDates(trip, LocalDate.parse("2026-04-18"), LocalDate.parse("2026-04-19")) // day 1 goes: unplanned by UPDATE
+
+        graph.sync.syncNow()
+
+        assertEquals(null, graph.db.syncQueries.selectPlanBase(objective).executeAsOneOrNull()) // a later move measures from the server's day
+    }
+
     private fun JsonObject.str(key: String) = getValue(key).toString().trim('"')
 }

@@ -72,11 +72,11 @@ class SyncRepository internal constructor(
     /** What the loop wakes up for: not a move held by an open conflict, or it would sync every 2 s until someone chooses. */
     private val sendable: Flow<Int> = changes.map { db.syncQueries.countSendable().executeAsOne().toInt() }.flowOn(io).distinctUntilChanged()
 
-    fun observe(): Flow<SyncState> = combine(account.observe().map { it != null }, pending) { signedIn, n -> SyncState(signedIn, n) }
+    fun observe(): Flow<SyncState> = combine(account.observeSignedIn(), pending) { signedIn, n -> SyncState(signedIn, n) }
 
     /** While signed in: a sync soon after each edit, and at least once a minute to fetch the crew's changes. */
     fun start(scope: CoroutineScope) = scope.launch {
-        account.observe().map { it != null }.distinctUntilChanged().collectLatest { signedIn ->
+        account.observeSignedIn().collectLatest { signedIn ->
             while (signedIn) {
                 val ok = try {
                     syncNow()
@@ -220,9 +220,11 @@ class SyncRepository internal constructor(
             val entries = byTable[table.name]?.filter { table.name != "plan_item" || it.row_key !in held } ?: continue
             val newRows = mutableListOf<JsonObject>()
             val edits = mutableListOf<Pair<Map<String, String>, JsonObject>>()
+            val sentRows = mutableListOf<JsonObject>()
             withContext(io) {
                 entries.groupBy { it.row_key }.forEach { (key, fields) ->
                     val row = readRow(table, key) ?: return@forEach // gone from this phone (signed out, re-keyed): nothing to send
+                    sentRows += JsonObject(row)
                     if (fields.any { it.col == "*" }) newRows += JsonObject(row)
                     else edits += table.keys.associateWith { row.getValue(it).jsonPrimitive.content } to
                         JsonObject((fields.map { it.col }.filter { it in table.columns && it !in table.keys } + "updated_at").associateWith { row.getValue(it) })
@@ -239,7 +241,7 @@ class SyncRepository internal constructor(
             withContext(io) {
                 db.transaction {
                     db.syncQueries.deleteSent(entries.map { it.id })
-                    if (table.name == "plan_item") newRows.forEach(::settlePlanBase)
+                    if (table.name == "plan_item") sentRows.forEach(::settlePlanBase)
                 }
             }
         }

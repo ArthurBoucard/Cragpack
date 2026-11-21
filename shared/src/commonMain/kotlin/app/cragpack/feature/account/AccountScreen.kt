@@ -1,5 +1,6 @@
 package app.cragpack.feature.account
 
+import app.cragpack.designsystem.component.ErrorRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -67,15 +68,18 @@ val LocalAccount = staticCompositionLocalOf<AccountRepository> { error("App() pr
 fun BoxScope.AccountPromptSheet(reason: AccountReason?, onDismiss: () -> Unit, onEmail: () -> Unit, onSignedIn: () -> Unit = onDismiss) {
     CtBottomSheet(reason != null, reason?.title.orEmpty(), onDismiss) {
         CtText("Your trips on this phone come with you.", color = CragpackTheme.colors.ink2)
-        GoogleButton(onSignedIn)
-        CtButton("Continue with email", onEmail, style = CtButtonStyle.Ghost, size = CtButtonSize.Wide, icon = LucideIcon.Mail)
+        val google = rememberGoogleSignIn()
+        if (google != null) GoogleButton(google, onSignedIn)
+        CtButton(
+            "Continue with email", onEmail,
+            style = if (google != null) CtButtonStyle.Ghost else CtButtonStyle.Solid, size = CtButtonSize.Wide, icon = LucideIcon.Mail,
+        )
     }
 }
 
 /** "Continue with Google", where this phone has Google's sign-in (README: Google sign-in). Shows its own errors. */
 @Composable
-private fun GoogleButton(onSignedIn: () -> Unit) {
-    val google = rememberGoogleSignIn() ?: return
+private fun GoogleButton(google: GoogleSignIn, onSignedIn: () -> Unit) {
     val account = LocalAccount.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
@@ -99,7 +103,7 @@ private fun GoogleButton(onSignedIn: () -> Unit) {
             }
         }
     }, size = CtButtonSize.Wide, enabled = !busy)
-    error?.let { CtText(it, color = CragpackTheme.colors.dangerInk) }
+    error?.let { ErrorRow(it) }
 }
 
 enum class AccountMode(val title: String, val action: String) {
@@ -198,7 +202,8 @@ fun AccountScreen(vm: AccountViewModel, onBack: () -> Unit, onDone: () -> Unit) 
                 CtButton("Resend email", { scope.launch { vm.resend() } }, style = CtButtonStyle.Ghost, size = CtButtonSize.Sm)
             } else {
                 Fields(vm, form)
-                if (form.mode == AccountMode.SignIn) GoogleButton(onSignedIn = onDone) // design gap: "plus Apple and Google"
+                val google = rememberGoogleSignIn()
+                if (form.mode == AccountMode.SignIn && google != null) GoogleButton(google, onSignedIn = onDone) // design gap: "plus Apple and Google"
                 val other = if (form.mode == AccountMode.Create) AccountMode.SignIn else AccountMode.Create
                 CtButton(
                     if (other == AccountMode.SignIn) "I have an account" else "Create an account",
@@ -208,7 +213,7 @@ fun AccountScreen(vm: AccountViewModel, onBack: () -> Unit, onDone: () -> Unit) 
                 )
             }
             form.message?.let {
-                CtText(it, Modifier.padding(horizontal = 8.dp), color = if (form.isError) CragpackTheme.colors.dangerInk else CragpackTheme.colors.ink2)
+                if (form.isError) ErrorRow(it) else CtText(it, Modifier.padding(horizontal = 8.dp), color = CragpackTheme.colors.ink2)
             }
             Spacer(Modifier.height(bottom.calculateBottomPadding()))
         }

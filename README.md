@@ -60,7 +60,7 @@ Sign in with Apple and Google on iOS come later (a paid Apple developer account,
 
 ## Rules
 
-- **Dependencies point inward:** `feature -> domain <- data`. Screens read the local database only, never the network. Exceptions: YouTube preview images, which are online only like the videos themselves (D9), and the actions that only work with the server: invite links (get, reset, preview, join), crew changes (make organiser, remove, leave) and Delete account. Those show a loading and a "can't right now" state.
+- **Dependencies point inward:** `feature -> domain <- data`. Screens read the local database only, never the network. Exceptions: YouTube preview images, which are online only like the videos themselves (D9), and the actions that only work with the server: signing in or up, invite links (get, reset, preview, join), crew changes (make organiser, remove, leave) and Delete account. Those show a loading and a "can't right now" state.
 - **Only design-system pieces in screens.** Need a new colour, size or text style? Add it to `design/tokens/cragpack.tokens.json` first; `:designsystem:generateTokens` turns it into Kotlin on build.
 - **Grades come from `design/data/grades.json`** via the generated `GradeTable`. Never hard-code a grade list.
 - **New icon:** drop the Lucide SVG in `design/icons/svg/`, run `node tools/lucide-to-vector.mjs`.

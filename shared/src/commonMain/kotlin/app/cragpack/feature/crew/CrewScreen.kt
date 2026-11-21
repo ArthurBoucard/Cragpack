@@ -1,5 +1,7 @@
 package app.cragpack.feature.crew
 
+import app.cragpack.designsystem.component.ActionRow
+import app.cragpack.designsystem.component.ErrorRow
 import app.cragpack.domain.trip.CrewMember
 import app.cragpack.designsystem.component.CtButtonSize
 import app.cragpack.designsystem.component.CtBottomSheet
@@ -26,6 +28,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.cragpack.data.AppGraph
@@ -70,13 +73,13 @@ class CrewViewModel(private val graph: AppGraph, private val tripId: String) : V
     var link by mutableStateOf<LinkState>(LinkState.Loading)
     private var loading: Job? = null
 
-    init {
-        viewModelScope.launch { graph.account.observeSignedIn().collect { if (it) loadLink() } }
-    }
-
+    /** Fetched each time Crew shows (signed in), so a link reset in Trip settings never lingers here. */
     fun loadLink() {
         loading?.cancel()
-        loading = viewModelScope.launch { link = LinkState.Loading; link = fetchLink() }
+        loading = viewModelScope.launch {
+            if (link !is LinkState.Ready) link = LinkState.Loading // keep the old link on screen while it refreshes
+            link = fetchLink()
+        }
     }
 
     /** The climber whose sheet (31) is open; it closes once their change has worked. */
@@ -128,6 +131,10 @@ fun CrewScreen(vm: CrewViewModel, invite: Boolean, onBack: () -> Unit, onSetting
     var prompt by rememberSaveable { mutableStateOf(false) }
     var asked by rememberSaveable { mutableStateOf(false) } // came from + : ask once, not again after Not now
     val iOrganise = crew.any { it.person.id == vm.myId && it.organiser }
+    LifecycleStartEffect(signedIn) {
+        if (signedIn == true) vm.loadLink()
+        onStopOrDispose {}
+    }
     LaunchedEffect(signedIn) {
         if (signedIn == false && invite && !asked) {
             asked = true
@@ -189,10 +196,7 @@ private fun InviteLink(state: LinkState, onRetry: () -> Unit) {
     var copied by remember { mutableStateOf(false) }
     when (state) {
         LinkState.Loading -> CtText("Getting the invite link…", Modifier.padding(start = 8.dp), color = CragpackTheme.colors.ink2)
-        is LinkState.Failed -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
-            CtText(state.message, Modifier.weight(1f).padding(start = 8.dp), color = CragpackTheme.colors.ink2)
-            CtButton("Try again", onRetry, style = CtButtonStyle.Ghost)
-        }
+        is LinkState.Failed -> ErrorRow(state.message) { CtButton("Try again", onRetry, style = CtButtonStyle.Ghost, size = CtButtonSize.Sm) }
         is LinkState.Ready -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
             CtCard(Modifier.weight(1f).heightIn(min = SizeTokens.tap), radius = SizeTokens.tap) {
                 Row(Modifier.padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -219,13 +223,16 @@ private fun BoxScope.ClimberSheet(
     onRemove: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    CtBottomSheet(climber != null, climber?.person?.label.orEmpty(), onDismiss) {
+    CtBottomSheet(
+        climber != null,
+        climber?.person?.label.orEmpty(),
+        onDismiss,
+        titleLeading = climber?.let { c -> { Avatar(c.person.name, c.person.colorIndex, size = AvatarSize.Xl) } },
+    ) {
         val c = climber ?: return@CtBottomSheet
         // ponytail: their offline status (Saved / Saving 62%) arrives with the offline pack (Phase 3).
-        if (!c.organiser) {
-            CtButton("Make organiser", { onMakeOrganiser(c.person.id) }, style = CtButtonStyle.Ghost, size = CtButtonSize.Wide, icon = LucideIcon.ShieldCheck, enabled = !busy)
-        }
-        CtButton("Remove from trip", { onRemove(c.person.id) }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide, icon = LucideIcon.UserMinus, enabled = !busy)
-        error?.let { CtText(it, color = CragpackTheme.colors.dangerInk) }
+        if (!c.organiser) ActionRow("Make organiser", LucideIcon.ShieldCheck, { onMakeOrganiser(c.person.id) }, enabled = !busy)
+        ActionRow("Remove from trip", LucideIcon.UserMinus, { onRemove(c.person.id) }, danger = true, enabled = !busy)
+        error?.let { ErrorRow(it) }
     }
 }

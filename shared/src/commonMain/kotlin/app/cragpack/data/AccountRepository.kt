@@ -1,5 +1,6 @@
 package app.cragpack.data
 
+import kotlinx.coroutines.CancellationException
 import app.cash.sqldelight.TransactionWithoutReturn
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToOneOrNull
@@ -60,7 +61,13 @@ class AccountRepository internal constructor(
 
     /** Clears the phone and starts again as a new local user. The account's trips stay on the server. */
     suspend fun signOut() = session.withLock {
-        runCatching { accessToken()?.let { auth?.signOut(it) } } // offline: the session just expires
+        try {
+            accessToken()?.let { auth?.signOut(it) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // offline: the session just expires
+        }
         clearPhone()
     }
 
@@ -88,7 +95,11 @@ class AccountRepository internal constructor(
         // ponytail: beta files stay in app storage, unreferenced; Storage management (Phase 3) clears them.
     }
 
-    /** A valid access token, refreshed when it's about to run out; null without an account. */
+    /**
+     * A valid access token, refreshed when it's about to run out; null without an account.
+     * ponytail: a refused refresh (session revoked elsewhere) just keeps sync failing with edits held on the phone;
+     * add a "Sign in again" state to the pill if that shows up.
+     */
     internal suspend fun accessToken(): String? = refreshing.withLock {
         val (access, refresh, expires) = withContext(io) { listOf(ACCESS, REFRESH, EXPIRES).map { db.settingQueries.get(it).executeAsOneOrNull() } }
         if (access == null || refresh == null) return@withLock null

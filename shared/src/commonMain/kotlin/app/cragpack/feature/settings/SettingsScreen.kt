@@ -1,5 +1,7 @@
 package app.cragpack.feature.settings
 
+import app.cragpack.designsystem.component.StatusTag
+import app.cragpack.designsystem.component.ErrorRow
 import kotlinx.coroutines.CancellationException
 import app.cragpack.designsystem.component.CtButtonStyle
 import app.cragpack.designsystem.component.CtButtonSize
@@ -133,8 +135,9 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: (
                 ListRow(
                     signedIn.name.ifBlank { signedIn.email },
                     Modifier.padding(top = 8.dp),
-                    meta = "${signedIn.provider.replaceFirstChar { it.uppercase() }} · ${signedIn.email}",
+                    meta = signedIn.email,
                     leading = { Avatar(signedIn.name, 1, size = AvatarSize.Xl) },
+                    trailing = { StatusTag(signedIn.provider.replaceFirstChar { it.uppercase() }) },
                 )
             } else {
                 ListRow(
@@ -167,7 +170,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: (
                     style = CtButtonStyle.Ghost, size = CtButtonSize.Wide, icon = LucideIcon.LogOut,
                 )
                 CtButton("Delete account", { confirmDelete = true }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide, icon = LucideIcon.Trash2)
-                vm.deleteError?.let { CtText(it, Modifier.padding(horizontal = 8.dp), color = CragpackTheme.colors.dangerInk) }
+                vm.deleteError?.let { ErrorRow(it) }
             }
         }
     }

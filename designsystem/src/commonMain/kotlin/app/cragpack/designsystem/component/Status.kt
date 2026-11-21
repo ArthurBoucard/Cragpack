@@ -60,6 +60,17 @@ fun SyncStatusPill(status: SyncStatus, modifier: Modifier = Modifier) {
     }
 }
 
+/** `.tag` — small pill (Settings: how you signed in). ponytail: the offline dot and dashed `todo` come with the offline pack (Phase 3). */
+@Composable
+fun StatusTag(text: String, modifier: Modifier = Modifier) {
+    CtText(
+        text,
+        modifier.clip(CircleShape).background(CragpackTheme.colors.surface2).padding(horizontal = 14.dp, vertical = 6.dp),
+        style = CragpackTheme.type.body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+        maxLines = 1,
+    )
+}
+
 /** `.now` — accent pill: "Now · day 2/5". */
 @Composable
 fun NowBadge(text: String, modifier: Modifier = Modifier) {
