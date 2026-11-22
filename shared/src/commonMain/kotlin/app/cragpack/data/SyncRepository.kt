@@ -123,6 +123,7 @@ class SyncRepository internal constructor(
             for (table in syncTables) {
                 pull[table.remote]?.jsonArray?.forEach { row ->
                     val values = row.jsonObject
+                    if (!table.readable(values)) return@forEach // ponytail: skipped silently; it lands once an app update can read it
                     val key = table.keys.joinToString("|") { values.getValue(it).jsonPrimitive.content }
                     if (table.name == "user" && key == me.value) return@forEach // my own name is mine to change
                     val waitingFields = waiting[table.name to key].orEmpty()

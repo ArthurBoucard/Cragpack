@@ -227,6 +227,10 @@ begin
         execute format('drop trigger if exists touch on %I', t);
         execute format('create trigger touch before insert or update on %I for each row execute function touch()', t);
         execute format('alter table %I enable row level security', t);
+        -- Newer Supabase projects don't expose new tables to the app's roles: say so here, and let the rules
+        -- below decide which rows. No delete (rows are soft-deleted); nothing for signed-out callers.
+        execute format('grant select, insert, update on %I to authenticated', t);
+        execute format('revoke all on %I from anon', t);
         if t <> 'profile' then
             execute format('create index if not exists %I on %I (trip_id, server_updated_at)', t || '_pull', t);
         end if;

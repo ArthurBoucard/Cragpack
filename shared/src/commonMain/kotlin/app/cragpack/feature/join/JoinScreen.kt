@@ -2,9 +2,9 @@ package app.cragpack.feature.join
 
 import app.cragpack.designsystem.component.ErrorRow
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -188,8 +188,9 @@ private fun Expired(onTrips: () -> Unit) {
 private fun Message(title: String, text: String? = null, icon: LucideIcon? = null, action: (@Composable () -> Unit)? = null) {
     Column(Modifier.fillMaxSize().statusBarsPadding().padding(SizeTokens.edge)) {
         CtText("Cragpack", style = CragpackTheme.type.title)
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            EmptyState(title, Modifier.fillMaxWidth().fillMaxHeight(0.55f), text = text, icon = icon, action = action)
-        }
+        // Card above the middle, clear of the dock, as in mock 17.
+        Spacer(Modifier.weight(0.3f))
+        EmptyState(title, Modifier.fillMaxWidth().weight(1f), text = text, icon = icon, action = action)
+        Spacer(Modifier.weight(0.8f))
     }
 }

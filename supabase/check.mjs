@@ -17,15 +17,14 @@ await db.exec(`
   create role authenticated;
   create role anon;
   grant usage on schema auth to authenticated, anon;
+  grant usage on schema public to authenticated, anon;
 `)
-for (const file of readdirSync(dir).filter(f => f.endsWith('.sql')).sort()) {
-  await db.exec(readFileSync(new URL(file, dir), 'utf8'))
-}
-// Supabase's defaults: both roles may use every table and function; the access rules and revokes decide.
-await db.exec(`grant usage on schema public to authenticated, anon;
-  grant select, insert, update on all tables in schema public to authenticated, anon;`)
-for (const file of readdirSync(dir).filter(f => f.endsWith('.sql')).sort()) {
-  await db.exec(readFileSync(new URL(file, dir), 'utf8')) // again, so each file's revokes win over the grants above
+// Like a new Supabase project: no table grants to the app's roles, so the files must grant what they need.
+// Functions keep Postgres's default (anyone may run them); the files revoke what's internal. Run twice: safe to re-run.
+for (let i = 0; i < 2; i++) {
+  for (const file of readdirSync(dir).filter(f => f.endsWith('.sql')).sort()) {
+    await db.exec(readFileSync(new URL(file, dir), 'utf8'))
+  }
 }
 
 const LEA = '00000000-0000-4000-8000-00000000000a'

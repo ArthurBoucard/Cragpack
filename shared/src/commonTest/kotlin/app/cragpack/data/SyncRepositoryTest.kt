@@ -317,6 +317,22 @@ class SyncRepositoryTest {
     }
 
     @Test
+    fun aPulledRowThisAppCantReadIsSkippedInsteadOfCrashingTheScreens() = runTest {
+        val trip = signedInWithATrip()
+        graph.sync.syncNow()
+        fun objective(id: String, scale: String, grade: String) = """{"id":"$id","trip_id":"$trip","name":"$id","style":"boulder",
+            "grade_scale":"$scale","grade_value":"$grade","sector_id":null,"lat":null,"lng":null,"created_by":"$tom",
+            "created_at":1,"updated_at":1,"deleted_at":null}"""
+        val (good, badScale, badGrade) = listOf("00000000-0000-4000-8000-0000000000c1", "00000000-0000-4000-8000-0000000000c2", "00000000-0000-4000-8000-0000000000c3")
+        pull = """{"trips":["$trip"],"cursor":"2026-11-20T10:00:00+00:00",
+            "objective":[${objective(good, "Font", "7B+")},${objective(badScale, "font", "7B+")},${objective(badGrade, "Font", "9Z")}]}"""
+
+        graph.sync.syncNow()
+
+        assertEquals(listOf(good), graph.objectives.observeWishlist(trip).first().map { it.id })
+    }
+
+    @Test
     fun anUnplanSentAsAFieldEditStillSettlesThePlanBase() = runTest {
         val (trip, objective, _) = plannedAndSynced()
         graph.trips.changeDates(trip, LocalDate.parse("2026-04-18"), LocalDate.parse("2026-04-19")) // day 1 goes: unplanned by UPDATE
