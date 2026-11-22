@@ -31,6 +31,7 @@ Screens: 15, 01, 09, 02, 03, 12, 05, 04, 22, 06, 23, 24, 25, 26, 27, 08, 29, 30,
 Screens: 13, 14, 07, 31, 10, 17, 19
 
 - [ ] Sign in with Apple, Google, email. Account prompt only on share actions. Upload local data on sign-up
+  - Still open before the iOS release: Sign in with Apple (paid Apple developer account) and Google on iOS (SDK added in Xcode)
 - [ ] Choose and set up the sync engine. Outbox and status pill states
 - [ ] Invite link (copy, share, reset), deep links, join flow, invite expired
 - [ ] Crew list, climber sheet (make organiser, remove), leave trip

@@ -60,8 +60,11 @@ fun Avatar(name: String, colorIndex: Int, modifier: Modifier = Modifier, size: A
 
 /** `.avs` — overlapping avatars. Each pair is (name, colorIndex). */
 @Composable
-fun AvatarStack(people: List<Pair<String, Int>>, modifier: Modifier = Modifier, size: AvatarSize = AvatarSize.Md) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(-10.dp)) {
+fun AvatarStack(people: List<Pair<String, Int>>, modifier: Modifier = Modifier, size: AvatarSize = AvatarSize.Md, onClick: (() -> Unit)? = null) {
+    Row(
+        modifier.then(if (onClick != null) Modifier.ctClickable(true, Role.Button, CircleShape, onClick) else Modifier),
+        horizontalArrangement = Arrangement.spacedBy(-10.dp),
+    ) {
         people.forEach { (name, color) -> Avatar(name, color, size = size) }
     }
 }

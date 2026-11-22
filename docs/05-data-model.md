@@ -8,7 +8,7 @@ This is a starting point derived from the screens and decisions. The developer o
 User
   name, email?, authProvider: apple | google | email | local
   settings: boulderGradeDisplay (asEntered | font | v), theme (auto | dark | light), wifiOnly (bool)
-  // "local" = no account yet. On sign-up the same id is kept and its data is uploaded (decision D4).
+  // "local" = no account yet. On sign-up the local id is replaced by the account's id everywhere and its data is uploaded (decision D4, tech spec §2).
 
 Trip
   name, crag (text), startDate, endDate, coverMediaId?

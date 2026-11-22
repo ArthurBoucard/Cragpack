@@ -14,6 +14,9 @@ data class Person(val id: String, val name: String, val colorIndex: Int) {
     val label: String get() = name.ifBlank { "You" }
 }
 
+/** A climber in one trip's crew. Organisers reset the invite link and manage the crew (tech spec §5). */
+data class CrewMember(val person: Person, val organiser: Boolean)
+
 sealed interface TripTiming {
     /** On the trip today: day [day] of [days]. */
     data class Now(val day: Int, val days: Int) : TripTiming

@@ -125,9 +125,19 @@ fun StarToggle(on: Boolean, onToggle: () -> Unit, contentDescription: String, mo
     }
 }
 
-/** `.row` + `.radio` — one choice in a sheet; the selected row gets an ink outline. */
+/**
+ * `.row` + `.radio` — one choice in a sheet; the selected row gets an ink outline. With [meta] (a second line)
+ * the radio comes first and [trailing] (an avatar) last, as in Sync conflict (19).
+ */
 @Composable
-fun CtRadioRow(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun CtRadioRow(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    meta: String? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     val c = CragpackTheme.colors
     val shape = RoundedCornerShape(RadiusTokens.lg)
     Row(
@@ -139,13 +149,22 @@ fun CtRadioRow(text: String, selected: Boolean, onClick: () -> Unit, modifier: M
             .clip(shape)
             .background(c.surface)
             .border(if (selected) 2.dp else 1.dp, if (selected) c.ink else c.line, shape)
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        CtText(text, Modifier.weight(1f), style = CragpackTheme.type.rowName.copy(fontSize = 16.sp), maxLines = 1)
-        Box(Modifier.size(26.dp).border(2.dp, c.ink, CircleShape), contentAlignment = Alignment.Center) {
-            if (selected) Box(Modifier.size(11.dp).clip(CircleShape).background(c.ink))
+        val radio = @Composable {
+            Box(Modifier.size(26.dp).border(2.dp, c.ink, CircleShape), contentAlignment = Alignment.Center) {
+                if (selected) Box(Modifier.size(11.dp).clip(CircleShape).background(c.ink))
+            }
         }
+        if (meta != null) radio()
+        Column(Modifier.weight(1f)) {
+            CtText(text, style = CragpackTheme.type.rowName.copy(fontSize = 16.sp), maxLines = 1)
+            meta?.let { CtText(it, Modifier.padding(top = 2.dp), style = CragpackTheme.type.label, color = c.ink2, maxLines = 1) }
+        }
+        trailing?.invoke()
+        if (meta == null) radio()
     }
 }
 

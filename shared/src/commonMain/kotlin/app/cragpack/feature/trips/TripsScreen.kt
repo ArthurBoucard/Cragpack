@@ -1,5 +1,20 @@
 package app.cragpack.feature.trips
 
+import androidx.compose.foundation.layout.Box
+import app.cragpack.designsystem.component.ErrorRow
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalClipboardManager
+import app.cragpack.domain.invite.INVITE_HOST
+import app.cragpack.domain.invite.inviteToken
+import app.cragpack.designsystem.component.CtTextField
+import app.cragpack.designsystem.component.CtButtonStyle
+import app.cragpack.designsystem.component.CtButtonSize
+import app.cragpack.designsystem.component.CtBottomSheet
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -33,7 +48,7 @@ import app.cragpack.designsystem.component.EmptyState
 import app.cragpack.designsystem.component.ListRow
 import app.cragpack.designsystem.component.NowBadge
 import app.cragpack.designsystem.component.PhotoSurface
-import app.cragpack.designsystem.component.SyncStatus
+import app.cragpack.feature.LocalSyncStatus
 import app.cragpack.designsystem.component.SyncStatusPill
 import app.cragpack.designsystem.component.TopBar
 import app.cragpack.designsystem.icon.LucideIcon
@@ -63,6 +78,9 @@ data class TripCardUi(
 )
 
 class TripsViewModel(graph: AppGraph) : ViewModel() {
+    /** Your name for the avatar; blank (the generic person) without an account. */
+    val myName = graph.account.observe().map { it?.name.orEmpty() }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
     /** null while loading. */
     val trips = graph.trips.observeTrips().map { items ->
         val today = graph.today()
@@ -89,17 +107,23 @@ fun TripsScreen(
     onRecap: (String) -> Unit,
     onLogbook: () -> Unit,
     onSettings: () -> Unit,
+    onJoin: (token: String) -> Unit,
 ) {
     val trips by vm.trips.collectAsStateWithLifecycle()
-    CtScreen(dock = { CtaDock("New trip", LucideIcon.Plus, onNewTrip) }) { bottom ->
+    val myName by vm.myName.collectAsStateWithLifecycle()
+    var pasting by rememberSaveable { mutableStateOf(false) }
+    CtScreen(
+        dock = { CtaDock("New trip", LucideIcon.Plus, onNewTrip) },
+        overlay = { PasteLinkSheet(pasting, onDismiss = { pasting = false }, onJoin = { pasting = false; onJoin(it) }) },
+    ) { bottom ->
         LazyColumn(
             contentPadding = PaddingValues(start = SizeTokens.edge, end = SizeTokens.edge, bottom = bottom.calculateBottomPadding()),
             verticalArrangement = Arrangement.spacedBy(SizeTokens.gap * 2),
         ) {
             item {
                 TopBar(
-                    leading = { Avatar("", 1, size = AvatarSize.Xl, onClick = onLogbook) },
-                    center = { SyncStatusPill(SyncStatus.OnThisPhone) },
+                    leading = { Avatar(myName, 1, size = AvatarSize.Xl, onClick = onLogbook) },
+                    center = { SyncStatusPill(LocalSyncStatus.current) },
                     trailing = { CtIconButton(LucideIcon.EllipsisVertical, "Settings", onSettings) },
                 )
             }
@@ -107,14 +131,23 @@ fun TripsScreen(
             val list = trips
             when {
                 list == null -> Unit
-                // ponytail: "Paste invite link" arrives with accounts (Phase 2).
-                list.isEmpty() -> item { EmptyState("No trips yet", Modifier.fillMaxWidth().height(320.dp)) }
+                list.isEmpty() -> item {
+                    EmptyState("No trips yet", Modifier.fillMaxWidth().height(320.dp)) {
+                        CtButton("Paste invite link", { pasting = true }, style = CtButtonStyle.Ghost, icon = LucideIcon.Link)
+                    }
+                }
                 else -> items(list, key = { it.id }) { trip ->
                     when (trip.timing) {
                         is TripTiming.Now -> NowCard(trip, trip.timing) { onOpenTrip(trip.id) }
                         is TripTiming.Upcoming -> UpcomingCard(trip) { onOpenTrip(trip.id) }
                         TripTiming.Past -> PastRow(trip, { onOpenTrip(trip.id) }, { onRecap(trip.id) })
                     }
+                }
+            }
+            // Design gap: with trips already here, a link still needs somewhere to go until links open the app.
+            if (!trips.isNullOrEmpty()) item {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CtButton("Join a trip with a link", { pasting = true }, style = CtButtonStyle.Ghost, size = CtButtonSize.Sm, icon = LucideIcon.Link)
                 }
             }
         }
@@ -158,3 +191,26 @@ private fun PastRow(trip: TripCardUi, onClick: () -> Unit, onRecap: () -> Unit) 
 @Composable
 private fun PhotoCard(modifier: Modifier, cover: String?, onClick: () -> Unit, content: @Composable BoxScope.() -> Unit) =
     PhotoSurface(modifier.fillMaxWidth(), onClick = onClick, imagePath = cover, content = content)
+
+/** "Paste invite link": until links open the app on their own (they need the real domain), this is the way in. */
+@Composable
+private fun BoxScope.PasteLinkSheet(visible: Boolean, onDismiss: () -> Unit, onJoin: (token: String) -> Unit) {
+    var text by rememberSaveable { mutableStateOf("") }
+    var wrong by rememberSaveable { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
+    LaunchedEffect(visible) {
+        if (visible && text.isEmpty()) clipboard.getText()?.text?.takeIf { inviteToken(it) != null }?.let { text = it.trim() }
+    }
+    CtBottomSheet(visible, "Join a trip", onDismiss) {
+        CtTextField(
+            text, { text = it; wrong = false }, "Invite link",
+            placeholder = "$INVITE_HOST/j/…",
+            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Uri),
+        )
+        if (wrong) ErrorRow("That isn't a Cragpack invite link. Copy the whole link and paste it again.")
+        CtButton("Open invite", {
+            val token = inviteToken(text)
+            if (token == null) wrong = true else { text = ""; onJoin(token) }
+        }, size = CtButtonSize.Wide, style = CtButtonStyle.Accent, enabled = text.isNotBlank())
+    }
+}

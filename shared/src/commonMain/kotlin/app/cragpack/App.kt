@@ -2,6 +2,7 @@ package app.cragpack
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -14,10 +15,20 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import app.cragpack.data.AppGraph
+import app.cragpack.data.SyncState
 import app.cragpack.designsystem.theme.CragpackTheme
 import app.cragpack.designsystem.theme.ThemeMode
 import app.cragpack.domain.settings.Theme
 import app.cragpack.feature.LocalGradeDisplay
+import app.cragpack.feature.LocalSyncStatus
+import app.cragpack.feature.toStatus
+import app.cragpack.feature.account.AccountScreen
+import app.cragpack.feature.account.LocalAccount
+import app.cragpack.feature.account.AccountViewModel
+import app.cragpack.feature.crew.CrewScreen
+import app.cragpack.feature.crew.CrewViewModel
+import app.cragpack.feature.join.JoinScreen
+import app.cragpack.feature.join.JoinViewModel
 import app.cragpack.feature.gear.GearViewModel
 import app.cragpack.feature.logbook.LogSendScreen
 import app.cragpack.feature.logbook.LogSendViewModel
@@ -29,6 +40,7 @@ import app.cragpack.feature.objective.ObjectiveFormScreen
 import app.cragpack.feature.objective.ObjectiveFormViewModel
 import app.cragpack.feature.objective.ObjectiveScreen
 import app.cragpack.feature.objective.ObjectiveViewModel
+import app.cragpack.feature.plan.ConflictViewModel
 import app.cragpack.feature.plan.EditDayScreen
 import app.cragpack.feature.plan.EditDayViewModel
 import app.cragpack.feature.plan.PlanViewModel
@@ -57,6 +69,9 @@ import kotlinx.serialization.Serializable
 @Serializable private data object LogbookRoute
 @Serializable private data class EditDayRoute(val tripId: String, val dayId: String)
 @Serializable private data object LogSendRoute
+@Serializable private data object AccountRoute
+@Serializable private data class CrewRoute(val tripId: String, val invite: Boolean = false)
+@Serializable private data class JoinRoute(val token: String)
 
 /** Root of the app on both platforms. Trips home is the root (docs/03 navigation model). */
 @Composable
@@ -68,14 +83,25 @@ fun App(graph: AppGraph) {
         Theme.Dark -> ThemeMode.Dark
         Theme.Sunlight -> ThemeMode.Sunlight
     }
+    val sync by remember { graph.sync.observe() }.collectAsState(SyncState(signedIn = false, pending = 0))
     CragpackTheme(mode) {
-        CompositionLocalProvider(LocalGradeDisplay provides settings.gradeDisplay) { AppNav(graph) }
+        CompositionLocalProvider(
+            LocalGradeDisplay provides settings.gradeDisplay,
+            LocalSyncStatus provides sync.toStatus(),
+            LocalAccount provides graph.account,
+        ) { AppNav(graph) }
     }
 }
 
 @Composable
 private fun AppNav(graph: AppGraph) {
     val nav = rememberNavController()
+    // An invite link the app was opened with: show Join on top of whatever is open.
+    val opened by graph.openedInvite.collectAsState()
+    LaunchedEffect(opened) {
+        // Not nav.open: a link must never be dropped because a transition is running.
+        opened?.let { nav.navigate(JoinRoute(it)) { launchSingleTop = true }; graph.openedInvite.value = null }
+    }
     NavHost(nav, startDestination = TripsRoute) {
         composable<TripsRoute> {
             TripsScreen(
@@ -85,6 +111,27 @@ private fun AppNav(graph: AppGraph) {
                 onRecap = { nav.open(RecapRoute(it)) },
                 onLogbook = { nav.open(LogbookRoute) },
                 onSettings = { nav.open(SettingsRoute) },
+                onJoin = { nav.open(JoinRoute(it)) },
+            )
+        }
+        composable<CrewRoute> { entry ->
+            val (tripId, invite) = entry.toRoute<CrewRoute>()
+            CrewScreen(
+                viewModel { CrewViewModel(graph, tripId) },
+                invite = invite,
+                onBack = { nav.back() },
+                onSettings = { nav.open(TripSettingsRoute(tripId)) },
+                onCreateAccount = { nav.open(AccountRoute) },
+            )
+        }
+        composable<JoinRoute> { entry ->
+            val token = entry.toRoute<JoinRoute>().token
+            JoinScreen(
+                viewModel { JoinViewModel(graph, token) },
+                // Not nav.open: these fire once, possibly while the account screen is still closing.
+                onJoined = { nav.navigate(TripRoute(it)) { popUpTo(TripsRoute) } },
+                onTrips = { nav.popBackStack(TripsRoute, inclusive = false) },
+                onCreateAccount = { nav.open(AccountRoute) },
             )
         }
         composable<NewTripRoute> {
@@ -102,11 +149,14 @@ private fun AppNav(graph: AppGraph) {
                 viewModel { TripLogViewModel(graph, id) },
                 viewModel { PlanViewModel(graph, id) },
                 viewModel { GearViewModel(graph, id) },
+                viewModel { ConflictViewModel(graph, id) },
                 onBack = { nav.back() },
                 onAddObjective = { nav.open(ObjectiveFormRoute(id)) },
                 onOpenObjective = { nav.open(ObjectiveRoute(it)) },
                 onEditDay = { nav.open(EditDayRoute(id, it)) },
                 onSettings = { nav.open(TripSettingsRoute(id)) },
+                onCrew = { nav.open(CrewRoute(id)) },
+                onInvite = { nav.open(CrewRoute(id, invite = true)) },
             )
         }
         composable<ObjectiveFormRoute> { entry ->
@@ -144,7 +194,11 @@ private fun AppNav(graph: AppGraph) {
             )
         }
         composable<LogSendRoute> { LogSendScreen(viewModel { LogSendViewModel(graph) }, onClose = { nav.back() }) }
-        composable<SettingsRoute> { SettingsScreen(viewModel { SettingsViewModel(graph) }, onBack = { nav.back() }) }
+        composable<SettingsRoute> {
+            SettingsScreen(viewModel { SettingsViewModel(graph) }, onBack = { nav.back() }, onCreateAccount = { nav.open(AccountRoute) })
+        }
+        // Back to whatever asked for an account: that screen carries on now that there is one (tech spec §2).
+        composable<AccountRoute> { AccountScreen(viewModel { AccountViewModel(graph) }, onBack = { nav.back() }, onDone = { nav.back() }) }
         composable<TripSettingsRoute> { entry ->
             val tripId = entry.toRoute<TripSettingsRoute>().tripId
             TripSettingsScreen(

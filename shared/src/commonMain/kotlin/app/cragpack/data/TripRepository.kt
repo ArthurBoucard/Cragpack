@@ -5,11 +5,13 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import app.cragpack.data.db.CragpackDb
+import app.cragpack.domain.trip.CrewMember
 import app.cragpack.domain.trip.Person
 import app.cragpack.domain.trip.Trip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.DatePeriod
@@ -34,9 +36,10 @@ data class TripDetail(val trip: Trip, val crew: List<Person>, val stats: TripSta
 
 class TripRepository internal constructor(
     private val db: CragpackDb,
-    private val myId: String,
+    private val me: StateFlow<String>,
     private val now: () -> Long,
 ) {
+    private val myId get() = me.value
     private val io = Dispatchers.IO
 
     fun observeTrips(): Flow<List<TripListItem>> = combine(
@@ -54,6 +57,10 @@ class TripRepository internal constructor(
             TripStats(objectives.toInt(), sent.toInt(), unplanned.toInt(), gear.toInt(), covered.toInt(), beta.toInt())
         }.asFlow().mapToOne(io),
     ) { trip, crews, stats -> trip?.let { TripDetail(it, crews[id].orEmpty(), stats) } }
+
+    fun observeCrew(tripId: String): Flow<List<CrewMember>> =
+        db.tripQueries.selectCrew(tripId) { id, name, color, role -> CrewMember(Person(id, name, color.toInt()), role == "organiser") }
+            .asFlow().mapToList(io)
 
     fun observeDay(tripId: String, date: LocalDate): Flow<PlannedDay?> =
         db.tripQueries.selectDayOn(tripId, date.toString()) { isRest, sector -> PlannedDay(isRest != 0L, sector) }

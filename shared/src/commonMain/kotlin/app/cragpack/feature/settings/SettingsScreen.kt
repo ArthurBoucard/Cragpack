@@ -1,5 +1,11 @@
 package app.cragpack.feature.settings
 
+import app.cragpack.designsystem.component.StatusTag
+import app.cragpack.designsystem.component.ErrorRow
+import kotlinx.coroutines.CancellationException
+import app.cragpack.designsystem.component.CtButtonStyle
+import app.cragpack.designsystem.component.CtButtonSize
+import app.cragpack.designsystem.component.CtButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +16,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import app.cragpack.designsystem.component.CtConfirmDialog
+import app.cragpack.feature.account.AccountPromptSheet
+import app.cragpack.feature.explainFailure
+import app.cragpack.feature.account.AccountReason
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -36,16 +49,34 @@ import app.cragpack.domain.settings.formatBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(private val graph: AppGraph) : ViewModel() {
     val settings = graph.settings.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), graph.settings.current())
     val storageBytes = graph.settings.observeStorageBytes().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
+    val account = graph.account.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val accountsAvailable = graph.account.available
+    val unsynced = graph.sync.observe().map { it.pending }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     fun setGradeDisplay(value: GradeDisplay) = write { graph.settings.setGradeDisplay(value) }
     fun setTheme(value: Theme) = write { graph.settings.setTheme(value) }
     fun setWifiOnly(value: Boolean) = write { graph.settings.setWifiOnly(value) }
+    fun signOut() = viewModelScope.launch { graph.account.signOut() }
+
+    var deleteError by mutableStateOf<String?>(null)
+
+    fun deleteAccount() = viewModelScope.launch {
+        deleteError = try {
+            graph.account.deleteAccount()
+            null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            explainFailure(e, "delete your account")
+        }
+    }
 
     private fun write(block: () -> Unit) = viewModelScope.launch(Dispatchers.IO) { block() }
 }
@@ -53,15 +84,44 @@ class SettingsViewModel(private val graph: AppGraph) : ViewModel() {
 private val gradeLabels = listOf(GradeDisplay.AsEntered to "As entered", GradeDisplay.Font to "Font", GradeDisplay.V to "V")
 
 /**
- * Settings (27). Without an account the account row reads "Create account" (design gap, decided).
- * ponytail: Sign out, Delete account and the account prompt arrive with accounts (Phase 2);
- * Storage management (remove offline copies) with the offline pack (Phase 3).
+ * Settings (27). Without an account the account row reads "Create account" and opens the account prompt (design gap, decided).
+ * ponytail: Storage management (remove offline copies) arrives with the offline pack (Phase 3).
  */
 @Composable
-fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
+fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onCreateAccount: () -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val storage by vm.storageBytes.collectAsStateWithLifecycle()
-    CtScreen { bottom ->
+    val account by vm.account.collectAsStateWithLifecycle()
+    val unsynced by vm.unsynced.collectAsStateWithLifecycle()
+    var prompt by rememberSaveable { mutableStateOf(false) }
+    var confirmSignOut by rememberSaveable { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    CtScreen(
+        overlay = {
+            AccountPromptSheet(AccountReason.Sync.takeIf { prompt }, onDismiss = { prompt = false }, onEmail = { prompt = false; onCreateAccount() })
+            CtConfirmDialog(
+                visible = confirmSignOut,
+                title = "Sign out?",
+                text = when (unsynced) {
+                    0 -> ""
+                    1 -> "1 edit hasn't synced yet and will be lost. "
+                    else -> "$unsynced edits haven't synced yet and will be lost. "
+                } + "Your trips leave this phone. They come back when you sign in again.",
+                confirmLabel = "Sign out",
+                onConfirm = { confirmSignOut = false; vm.signOut() },
+                onDismiss = { confirmSignOut = false },
+            )
+            CtConfirmDialog(
+                visible = confirmDelete,
+                title = "Delete your account?",
+                text = "Your account, your climbs, stars and gear claims are deleted for good, for your crew too. " +
+                    "Trips you share stay with the crew; trips only you were in are deleted.",
+                confirmLabel = "Delete",
+                onConfirm = { confirmDelete = false; vm.deleteAccount() },
+                onDismiss = { confirmDelete = false },
+            )
+        },
+    ) { bottom ->
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = SizeTokens.edge).padding(bottom),
             verticalArrangement = Arrangement.spacedBy(SizeTokens.gap),
@@ -70,13 +130,27 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                 leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) },
                 center = { CtText("Settings", style = CragpackTheme.type.title) },
             )
-            ListRow(
-                "Create account",
-                Modifier.padding(top = 8.dp),
-                meta = "Your trips stay on this phone",
-                leading = { Avatar("", 1, size = AvatarSize.Xl) },
-                trailing = { CtText("Coming soon", Modifier.padding(end = 10.dp), style = CragpackTheme.type.label, color = CragpackTheme.colors.ink2) },
-            )
+            val signedIn = account
+            if (signedIn != null) {
+                ListRow(
+                    signedIn.name.ifBlank { signedIn.email },
+                    Modifier.padding(top = 8.dp),
+                    meta = signedIn.email,
+                    leading = { Avatar(signedIn.name, 1, size = AvatarSize.Xl) },
+                    trailing = { StatusTag(signedIn.provider.replaceFirstChar { it.uppercase() }) },
+                )
+            } else {
+                ListRow(
+                    "Create account",
+                    Modifier.padding(top = 8.dp),
+                    meta = "Your trips stay on this phone",
+                    onClick = { prompt = true }.takeIf { vm.accountsAvailable },
+                    leading = { Avatar("", 1, size = AvatarSize.Xl) },
+                    trailing = if (vm.accountsAvailable) {
+                        { CtIcon(LucideIcon.ChevronRight, null, Modifier.padding(end = 10.dp), tint = CragpackTheme.colors.ink2) }
+                    } else null,
+                )
+            }
             Section("Boulder grades")
             CtSegmented(gradeLabels.map { it.second }, gradeLabels.indexOfFirst { it.first == settings.gradeDisplay }, { vm.setGradeDisplay(gradeLabels[it].first) })
             Section("Theme")
@@ -90,6 +164,14 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                 },
                 trailing = { CtText(formatBytes(storage), Modifier.padding(end = 10.dp), color = CragpackTheme.colors.ink2) },
             )
+            if (account != null) {
+                CtButton(
+                    "Sign out", { confirmSignOut = true }, Modifier.padding(top = 12.dp),
+                    style = CtButtonStyle.Ghost, size = CtButtonSize.Wide, icon = LucideIcon.LogOut,
+                )
+                CtButton("Delete account", { confirmDelete = true }, style = CtButtonStyle.Danger, size = CtButtonSize.Wide, icon = LucideIcon.Trash2)
+                vm.deleteError?.let { ErrorRow(it) }
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ import app.cragpack.domain.trip.Person
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.datetime.LocalDate
 
@@ -31,9 +32,10 @@ data class GearItem(
 
 class GearRepository internal constructor(
     private val db: CragpackDb,
-    private val myId: String,
+    private val me: StateFlow<String>,
     private val now: () -> Long,
 ) {
+    private val myId get() = me.value
     private val io = Dispatchers.IO
     private val q get() = db.gearQueries
 

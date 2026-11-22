@@ -1,6 +1,9 @@
 package app.cragpack.domain.format
 
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
 
 // ponytail: English only. Move to string resources when French lands (tech spec §8).
 private fun LocalDate.mon() = month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
@@ -30,3 +33,8 @@ fun formatWeekday(date: LocalDate): String = "${weekdayName(date)} ${date.day}"
 /** "2 Apr", or "2 Apr 2025" when not this year: logbook entries. */
 fun formatDay(date: LocalDate, today: LocalDate): String =
     if (date.year == today.year) "${date.day} ${date.mon()}" else "${date.day} ${date.mon()} ${date.year}"
+
+/** "10:42", on this phone's clock. */
+fun formatTime(epochMillis: Long): String =
+    Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(TimeZone.currentSystemDefault())
+        .let { "${it.hour.toString().padStart(2, '0')}:${it.minute.toString().padStart(2, '0')}" }

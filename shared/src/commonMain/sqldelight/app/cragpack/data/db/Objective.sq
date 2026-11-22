@@ -29,7 +29,8 @@ CREATE TABLE plan_item (
     day_id TEXT NOT NULL,
     order_key TEXT NOT NULL,      -- fractional index: reorder without renumbering
     updated_at INTEGER NOT NULL,
-    deleted_at INTEGER
+    deleted_at INTEGER,
+    updated_by TEXT               -- who moved it last, as the server saw it (Sync conflict, 19)
 );
 
 CREATE TABLE beta_item (
@@ -150,7 +151,7 @@ setPlan:
 INSERT OR REPLACE INTO plan_item (objective_id, day_id, order_key, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?);
 
 selectPlanItem:
-SELECT day_id, order_key FROM plan_item WHERE objective_id = ?;
+SELECT day_id, order_key, deleted_at FROM plan_item WHERE objective_id = ?;
 
 -- A day left the trip: its objectives go back to the unplanned tray.
 unplanDay:

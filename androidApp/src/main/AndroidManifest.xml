@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- YouTube previews; sync with Supabase arrives in Phase 2. -->
+    <!-- YouTube previews and sync with Supabase. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:name=".CragpackApp"
@@ -10,10 +10,20 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Invite links (tech spec §5). ponytail: autoVerify and the site's assetlinks.json once the
+                 domain is ours (D13). Until then Android 12+ opens them in the browser (the app only gets them if
+                 the link is added under App info → Open by default), so Paste invite link is the way in. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="cragpack.app" android:pathPrefix="/j/" />
             </intent-filter>
         </activity>
     </application>

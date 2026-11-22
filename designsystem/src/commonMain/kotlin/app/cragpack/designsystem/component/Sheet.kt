@@ -43,6 +43,7 @@ fun BoxScope.CtBottomSheet(
     visible: Boolean,
     title: String,
     onDismiss: () -> Unit,
+    titleLeading: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     CtBackHandler(enabled = visible, onBack = onDismiss)
@@ -69,8 +70,9 @@ fun BoxScope.CtBottomSheet(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Box(Modifier.align(Alignment.CenterHorizontally).size(44.dp, 5.dp).clip(RoundedCornerShape(3.dp)).background(c.line))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CtText(title, Modifier.weight(1f), style = CragpackTheme.type.h3, maxLines = 1)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                titleLeading?.invoke()
+                CtText(title, Modifier.weight(1f), style = CragpackTheme.type.h3, maxLines = 2)
                 CtIconButton(LucideIcon.X, "Close", onDismiss, size = CtIconButtonSize.Sm)
             }
             content()

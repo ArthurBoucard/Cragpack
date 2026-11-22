@@ -14,6 +14,9 @@ import app.cragpack.designsystem.tokens.LightColors
 enum class ThemeMode { Auto, Dark, Sunlight }
 
 internal val LocalColors = staticCompositionLocalOf { DarkColors }
+
+/** The app's theme (not a photo's dark content): what the status bar goes back to after a photo screen. */
+internal val LocalDarkTheme = staticCompositionLocalOf { true }
 private val LocalTypography = staticCompositionLocalOf<CragTypography> { error("Wrap content in CragpackTheme") }
 
 /** Colour for icons and text when a component doesn't set one (like Material's LocalContentColor). */
@@ -30,6 +33,7 @@ fun CragpackTheme(mode: ThemeMode = ThemeMode.Auto, content: @Composable () -> U
     SystemBarIcons(dark)
     CompositionLocalProvider(
         LocalColors provides colors,
+        LocalDarkTheme provides dark,
         LocalTypography provides cragTypography(),
         LocalContentColor provides colors.ink,
         content = content,

@@ -13,3 +13,10 @@ INSERT OR REPLACE INTO setting (name, data) VALUES (?, ?);
 -- Beta media kept on this phone, for the Storage row.
 selectStorageBytes:
 SELECT coalesce(sum(bytes), 0) FROM media_cache;
+
+get:
+SELECT data FROM setting WHERE name = ?;
+
+-- Sign out: the session goes, the device preferences stay.
+forgetSession:
+DELETE FROM setting WHERE name LIKE 'auth\_%' ESCAPE '\';

@@ -1,5 +1,9 @@
 package app.cragpack.feature.trip
 
+import app.cragpack.feature.plan.ConflictSheet
+import app.cragpack.feature.plan.ConflictViewModel
+import androidx.compose.ui.Alignment
+import app.cragpack.designsystem.component.CtIconButtonStyle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,7 +42,7 @@ import app.cragpack.designsystem.component.NowBadge
 import app.cragpack.designsystem.component.PhotoSurface
 import app.cragpack.designsystem.component.SegmentedProgress
 import app.cragpack.designsystem.component.StatTile
-import app.cragpack.designsystem.component.SyncStatus
+import app.cragpack.feature.LocalSyncStatus
 import app.cragpack.designsystem.component.SyncStatusPill
 import app.cragpack.designsystem.component.TabDock
 import app.cragpack.designsystem.component.TopBar
@@ -85,11 +89,14 @@ fun TripScreen(
     log: TripLogViewModel,
     plan: PlanViewModel,
     gear: GearViewModel,
+    conflicts: ConflictViewModel,
     onBack: () -> Unit,
     onAddObjective: () -> Unit,
     onOpenObjective: (String) -> Unit,
     onEditDay: (String) -> Unit,
     onSettings: () -> Unit,
+    onCrew: () -> Unit,
+    onInvite: () -> Unit,
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -100,13 +107,14 @@ fun TripScreen(
             if (tab == 1) WishlistFilterSheet(wishlist)
             if (tab == 2) PlanMoveSheet(plan)
             if (tab == 3) GearSheets(gear)
+            ConflictSheet(conflicts)
         },
     ) { bottom ->
         val state = ui ?: return@CtScreen
         when (tab) {
             0 -> {
                 LightStatusBarIcons()
-                Overview(state, bottom.calculateBottomPadding(), onBack, onSettings, onTab = { tab = it })
+                Overview(state, bottom.calculateBottomPadding(), onBack, onSettings, onCrew, onInvite, onTab = { tab = it })
             }
             1 -> WishlistTab(wishlist, bottom, onBack, onAddObjective, onOpenObjective)
             2 -> PlanTab(plan, bottom, onBack, onEditDay, onOpenObjective)
@@ -117,7 +125,15 @@ fun TripScreen(
 }
 
 @Composable
-private fun Overview(ui: TripUi, bottom: androidx.compose.ui.unit.Dp, onBack: () -> Unit, onSettings: () -> Unit, onTab: (Int) -> Unit) {
+private fun Overview(
+    ui: TripUi,
+    bottom: androidx.compose.ui.unit.Dp,
+    onBack: () -> Unit,
+    onSettings: () -> Unit,
+    onCrew: () -> Unit,
+    onInvite: () -> Unit,
+    onTab: (Int) -> Unit,
+) {
     val (trip, crew, stats) = ui.detail
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
         PhotoSurface(
@@ -128,7 +144,7 @@ private fun Overview(ui: TripUi, bottom: androidx.compose.ui.unit.Dp, onBack: ()
             Column(Modifier.padding(start = SizeTokens.edge, end = SizeTokens.edge, bottom = SizeTokens.edge)) {
                 TopBar(
                     leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) },
-                    center = { SyncStatusPill(SyncStatus.OnThisPhone) },
+                    center = { SyncStatusPill(LocalSyncStatus.current) },
                     trailing = { CtIconButton(LucideIcon.EllipsisVertical, "Trip settings", onSettings) },
                 )
                 Spacer(Modifier.height(120.dp))
@@ -136,8 +152,10 @@ private fun Overview(ui: TripUi, bottom: androidx.compose.ui.unit.Dp, onBack: ()
                 CtText(trip.name, style = CragpackTheme.type.titleXl)
                 val place = listOf(trip.crag, formatDateRange(trip.start, trip.end)).filter { it.isNotBlank() }.joinToString(" · ")
                 CtText(place, Modifier.padding(top = 8.dp, bottom = 16.dp))
-                // ponytail: the invite + button arrives with accounts (Phase 2).
-                AvatarStack(crew.map { it.name to it.colorIndex }, size = AvatarSize.Xl)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AvatarStack(crew.map { it.name to it.colorIndex }, size = AvatarSize.Xl, onClick = onCrew)
+                    CtIconButton(LucideIcon.Plus, "Invite", onInvite, style = CtIconButtonStyle.On)
+                }
             }
         }
         Column(Modifier.padding(horizontal = SizeTokens.edge), verticalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {

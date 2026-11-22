@@ -1,12 +1,12 @@
 -- One row per person this phone knows about. The device owner is created on first launch with
--- auth_provider = 'local' and keeps the same id after signing up (D4).
+-- auth_provider = 'local'; signing in swaps its id for the account's everywhere (adoptAccount, D4).
 CREATE TABLE user (
     id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL DEFAULT '',
     email TEXT,
     auth_provider TEXT NOT NULL DEFAULT 'local',
     is_me INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT 0,
     updated_at INTEGER NOT NULL
 );
 
@@ -15,3 +15,40 @@ SELECT * FROM user WHERE is_me = 1 LIMIT 1;
 
 insertMe:
 INSERT INTO user (id, is_me, created_at, updated_at) VALUES (?, 1, ?, ?);
+
+-- Signing in: the phone's local user becomes the account, and everything it made comes along (D4).
+-- Also merges local trips into an existing account: ids are UUIDs, nothing collides.
+adoptAccount {
+    UPDATE trip SET owner_id = :new WHERE owner_id = :old;
+    UPDATE trip_member SET user_id = :new WHERE user_id = :old;
+    UPDATE objective SET created_by = :new WHERE created_by = :old;
+    UPDATE interest SET user_id = :new WHERE user_id = :old;
+    UPDATE beta_item SET created_by = :new WHERE created_by = :old;
+    UPDATE media SET owner_id = :new WHERE owner_id = :old;
+    UPDATE gear_item SET created_by = :new WHERE created_by = :old;
+    UPDATE gear_claim SET user_id = :new WHERE user_id = :old;
+    UPDATE log_entry SET user_id = :new WHERE user_id = :old;
+    UPDATE user SET id = :new, name = :name, email = :email, auth_provider = :provider, updated_at = :now WHERE id = :old;
+}
+
+-- Signing out clears the phone; the account's trips come back on the next sign-in.
+wipe {
+    DELETE FROM trip;
+    DELETE FROM trip_member;
+    DELETE FROM sector;
+    DELETE FROM day;
+    DELETE FROM objective;
+    DELETE FROM interest;
+    DELETE FROM plan_item;
+    DELETE FROM beta_item;
+    DELETE FROM media;
+    DELETE FROM media_cache;
+    DELETE FROM gear_item;
+    DELETE FROM gear_claim;
+    DELETE FROM log_entry;
+    DELETE FROM user;
+    DELETE FROM outbox;
+    DELETE FROM sync_state;
+    DELETE FROM plan_base;
+    DELETE FROM plan_conflict;
+}

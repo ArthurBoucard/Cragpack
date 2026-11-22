@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidKmpLibrary)
@@ -38,16 +40,24 @@ kotlin {
             implementation(libs.lifecycle.viewmodel.compose)
             implementation(libs.filekit.dialogs.compose)
             implementation(libs.reorderable)
+            implementation(libs.ktor.client.core)
+            implementation(libs.kotlinx.serialization.json)
         }
         androidMain.dependencies {
             implementation(libs.sqldelight.android)
+            implementation(libs.ktor.client.okhttp)
+            implementation(libs.androidx.credentials)
+            implementation(libs.androidx.credentials.play)
+            implementation(libs.googleid)
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native)
+            implementation(libs.ktor.client.darwin)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
         getByName("androidHostTest").dependencies {
             implementation(libs.sqldelight.jvm)
@@ -86,3 +96,31 @@ val generateGradeTable = tasks.register("generateGradeTable") {
     }
 }
 kotlin.sourceSets.commonMain { kotlin.srcDir(generateGradeTable) }
+
+// local.properties -> SupabaseConfig.kt. Without keys (CI, a fresh clone) the app stays on this phone.
+val generateSupabaseConfig = tasks.register("generateSupabaseConfig") {
+    val props = rootProject.layout.projectDirectory.file("local.properties").asFile
+    val values = Properties().apply { if (props.exists()) props.inputStream().use(::load) }
+        .let { p -> listOf("supabase.url", "supabase.key", "google.webClientId").map { p.getProperty(it).orEmpty().trim() } }
+    val output = layout.buildDirectory.dir("generated/supabase")
+    inputs.property("values", values)
+    outputs.dir(output)
+    doLast {
+        val file = output.get().file("app/cragpack/data/SupabaseConfig.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText(
+            """
+            |// Generated from local.properties by :shared:generateSupabaseConfig. Do not edit.
+            |package app.cragpack.data
+            |
+            |internal object SupabaseConfig {
+            |    const val URL = "${values[0]}"
+            |    const val KEY = "${values[1]}"
+            |    /** Google sign-in: the OAuth "Web application" client id also set in Supabase → Auth → Google. Blank = no Google button. */
+            |    const val GOOGLE_WEB_CLIENT_ID = "${values[2]}"
+            |}
+            |""".trimMargin()
+        )
+    }
+}
+kotlin.sourceSets.commonMain { kotlin.srcDir(generateSupabaseConfig) }

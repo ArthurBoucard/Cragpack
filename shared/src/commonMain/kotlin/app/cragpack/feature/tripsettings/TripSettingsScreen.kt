@@ -1,6 +1,8 @@
 package app.cragpack.feature.tripsettings
 
+import app.cragpack.designsystem.component.ErrorRow
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,11 +16,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import app.cragpack.feature.explainFailure
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -28,11 +33,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.cragpack.data.AppGraph
 import app.cragpack.data.MediaFiles
+import kotlinx.coroutines.CancellationException
 import app.cragpack.designsystem.component.CtButton
 import app.cragpack.designsystem.component.CtButtonSize
 import app.cragpack.designsystem.component.CtButtonStyle
 import app.cragpack.designsystem.component.CtConfirmDialog
 import app.cragpack.designsystem.component.CtFieldButton
+import app.cragpack.designsystem.component.CtIcon
 import app.cragpack.designsystem.component.CtIconButton
 import app.cragpack.designsystem.component.CtScreen
 import app.cragpack.designsystem.component.CtText
@@ -51,6 +58,7 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -61,6 +69,41 @@ class TripSettingsViewModel(private val graph: AppGraph, private val tripId: Str
     val today = graph.today()
     /** Live trip for the cover, dates and crew size; null while loading or once deleted. */
     val detail = graph.trips.observeTrip(tripId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** What I may do here: organisers reset the link and delete the trip; anyone in a shared trip can leave. */
+    val rights = combine(graph.account.observeSignedIn(), graph.trips.observeCrew(tripId)) { signedIn, crew ->
+        val organiser = crew.any { it.person.id == graph.myId && it.organiser }
+        Rights(resetLink = signedIn && organiser, delete = organiser, leave = signedIn && crew.size > 1)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Rights())
+
+    data class Rights(val resetLink: Boolean = false, val delete: Boolean = false, val leave: Boolean = false)
+
+    var leaveError by mutableStateOf<String?>(null)
+
+    /** True once left: the trip is gone from this phone and the screen closes. */
+    var left by mutableStateOf(false)
+
+    fun leave() = viewModelScope.launch {
+        try {
+            graph.crew.leave(tripId)
+            left = true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            leaveError = explainFailure(e, "leave")
+        }
+    }
+    var linkMessage by mutableStateOf<String?>(null)
+
+    fun resetLink() = viewModelScope.launch {
+        linkMessage = try {
+            "New link made: ${graph.invites.reset(tripId).substringAfter("://")}. The old one no longer works."
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            explainFailure(e, "reset the link")
+        }
+    }
 
     // The text fields own their text while typing; each change is saved (screen 29: "changes save automatically").
     var name by mutableStateOf("")
@@ -101,13 +144,17 @@ class TripSettingsViewModel(private val graph: AppGraph, private val tripId: Str
 
 /**
  * Trip settings (29) and Confirm delete (30).
- * ponytail: the invite link (Reset) and Leave trip arrive with accounts and sharing (Phase 2).
+ * Leave trip: anyone in a shared trip (the trip leaves this phone). Delete trip and Reset: organisers.
  */
 @Composable
 fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted: () -> Unit) {
     val detail by vm.detail.collectAsStateWithLifecycle()
+    val rights by vm.rights.collectAsStateWithLifecycle()
+    var confirmLeave by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(vm.left) { if (vm.left) onDeleted() }
     var datesOpen by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var confirmReset by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val cover = rememberFilePickerLauncher(FileKitType.Image) { file -> if (file != null) vm.setCover(file) }
     val d = detail ?: run { CtScreen {}; return }
@@ -119,6 +166,22 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
                 visible = datesOpen, start = trip.start, end = trip.end, today = vm.today,
                 onDone = { s, e -> vm.changeDates(s, e); datesOpen = false },
                 onDismiss = { datesOpen = false },
+            )
+            CtConfirmDialog(
+                visible = confirmLeave,
+                title = "Leave ${trip.name}?",
+                text = "The trip leaves this phone. Your sends stay in your logbook, and the invite link brings you back.",
+                confirmLabel = "Leave",
+                onConfirm = { confirmLeave = false; vm.leave() },
+                onDismiss = { confirmLeave = false },
+            )
+            CtConfirmDialog(
+                visible = confirmReset,
+                title = "Reset the invite link?",
+                text = "The current link stops working. Share the new one with anyone who hasn't joined yet.",
+                confirmLabel = "Reset",
+                onConfirm = { confirmReset = false; vm.resetLink() },
+                onDismiss = { confirmReset = false },
             )
             CtConfirmDialog(
                 visible = confirmDelete,
@@ -151,10 +214,23 @@ fun TripSettingsScreen(vm: TripSettingsViewModel, onBack: () -> Unit, onDeleted:
                 CtFieldButton("Start", formatDayShort(trip.start), "", { datesOpen = true }, Modifier.weight(1f))
                 CtFieldButton("End", formatDayShort(trip.end), "", { datesOpen = true }, Modifier.weight(1f))
             }
-            CtButton(
-                "Delete trip", { confirmDelete = true },
-                style = CtButtonStyle.Danger, size = CtButtonSize.Wide, icon = LucideIcon.Trash2,
-            )
+            if (rights.resetLink) {
+                ListRow(
+                    "Invite link",
+                    leading = { Box(Modifier.size(SizeTokens.tapSm), contentAlignment = Alignment.Center) { CtIcon(LucideIcon.Link, null) } },
+                    trailing = { CtButton("Reset", { confirmReset = true }, style = CtButtonStyle.Ghost, icon = LucideIcon.RefreshCw) },
+                )
+                vm.linkMessage?.let { CtText(it, Modifier.padding(horizontal = 8.dp), color = CragpackTheme.colors.ink2) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(SizeTokens.gap)) {
+                if (rights.leave) {
+                    CtButton("Leave trip", { confirmLeave = true }, Modifier.weight(1f), style = CtButtonStyle.Ghost, icon = LucideIcon.LogOut)
+                }
+                if (rights.delete) {
+                    CtButton("Delete trip", { confirmDelete = true }, Modifier.weight(1f), style = CtButtonStyle.Danger, icon = LucideIcon.Trash2)
+                }
+            }
+            vm.leaveError?.let { ErrorRow(it) }
             Spacer(Modifier.height(bottom.calculateBottomPadding()))
         }
     }

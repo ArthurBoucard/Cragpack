@@ -25,8 +25,10 @@ Items marked **[decide]** are open choices for the developer and product owner. 
   - turning on sync across devices
 - Saving the recap image works without an account.
 - **Sign-in methods:** Sign in with Apple, Google, email + password. Use the official Apple and Google buttons and SDKs, following their brand rules.
-- **After sign-up:** keep the local user id, upload all local data, then continue the action that triggered the prompt (for example, show the invite link).
-- **[decide]** what happens if someone signs in to an *existing* account that already has data while the phone also has local trips. Proposal: merge (ids are UUIDs, so nothing collides), then show a short confirmation.
+- **After sign-up:** the local user's id is replaced by the account's id in every row (Supabase picks the account id, and row-level security checks it), all local data is uploaded, then the action that triggered the prompt continues (for example, show the invite link). (decided 2026-11-20)
+- Signing in to an *existing* account while the phone has local trips takes the same path: the trips merge into the account (ids are UUIDs, so nothing collides). (decided 2026-11-20)
+- **Email confirmation** stays on: sign-up shows "Check your email"; after tapping the link the person comes back and the app signs in with what they just typed. (decided 2026-11-20)
+- **Sign out** clears the phone and starts a fresh local user; device preferences stay. Signing in again brings the trips back. (decided 2026-11-20)
 - **Account deletion** inside the app (Settings → Delete account). Apple requires this for apps that let people create accounts, and Google Play has a similar rule.
 - When you offer Google sign-in on iOS, Apple's review rules expect a privacy-focused login option too; Sign in with Apple covers this. Check the current App Store guidelines before submitting.
 

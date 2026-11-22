@@ -187,14 +187,58 @@ fun BigNumber(value: String, unit: String? = null, modifier: Modifier = Modifier
     }
 }
 
-/** `.empty` — inside a dashed card: a title and one action. */
+/** `.empty` — inside a dashed card: an optional icon, a title, an optional line of text and one action. */
 @Composable
-fun EmptyState(title: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
+fun EmptyState(
+    title: String,
+    modifier: Modifier = Modifier,
+    text: String? = null,
+    icon: LucideIcon? = null,
+    action: (@Composable () -> Unit)? = null,
+) {
     Box(modifier.dashedBorder(CragpackTheme.colors.ink, RadiusTokens.lg).padding(24.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            icon?.let { CtIcon(it, null) }
             CtText(title, style = CragpackTheme.type.h3, textAlign = TextAlign.Center)
+            text?.let { CtText(it, color = CragpackTheme.colors.ink2, textAlign = TextAlign.Center) }
             action?.invoke()
         }
+    }
+}
+
+/** Errors (docs/04): never red text, a dashed row saying what's wrong and how to fix it, plus at most one [action]. */
+@Composable
+fun ErrorRow(text: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
+    Row(
+        modifier.fillMaxWidth().dashedBorder(CragpackTheme.colors.ink, RadiusTokens.lg).padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        CtText(text, Modifier.weight(1f))
+        action?.invoke()
+    }
+}
+
+/** A sheet's action as a row (Climber 31): icon and label from the left. [danger] only for destructive ones (rule 12). */
+@Composable
+fun ActionRow(text: String, icon: LucideIcon, onClick: () -> Unit, modifier: Modifier = Modifier, danger: Boolean = false, enabled: Boolean = true) {
+    val c = CragpackTheme.colors
+    val shape = RoundedCornerShape(RadiusTokens.pill)
+    val tint = if (danger) c.dangerInk else c.ink
+    Row(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = SizeTokens.row)
+            .ctClickable(enabled, Role.Button, shape, onClick)
+            .clip(shape)
+            .background(c.surface)
+            .border(1.dp, c.line, shape)
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        CtIcon(icon, null, tint = tint)
+        CtText(text, style = CragpackTheme.type.rowName, color = tint, maxLines = 1)
     }
 }
 

@@ -45,7 +45,7 @@ import app.cragpack.designsystem.component.EmptyState
 import app.cragpack.designsystem.component.GradeChip
 import app.cragpack.designsystem.component.ListRow
 import app.cragpack.designsystem.component.PhotoSurface
-import app.cragpack.designsystem.component.SyncStatus
+import app.cragpack.feature.LocalSyncStatus
 import app.cragpack.designsystem.component.SyncStatusPill
 import app.cragpack.designsystem.component.TopBar
 import app.cragpack.designsystem.component.TrayPick
@@ -122,7 +122,7 @@ fun PlanTab(vm: PlanViewModel, bottom: PaddingValues, onBack: () -> Unit, onEdit
             Column(Modifier.padding(horizontal = SizeTokens.edge)) {
                 TopBar(
                     leading = { CtIconButton(LucideIcon.ChevronLeft, "Back", onBack) },
-                    center = { SyncStatusPill(SyncStatus.OnThisPhone) },
+                    center = { SyncStatusPill(LocalSyncStatus.current) },
                     trailing = { CtIconButton(LucideIcon.NotebookPen, "Edit day", { onEditDay(day.id) }) },
                 )
                 CtText("Plan", Modifier.padding(top = 24.dp, start = 4.dp, end = 4.dp, bottom = 14.dp), style = CragpackTheme.type.h1)
